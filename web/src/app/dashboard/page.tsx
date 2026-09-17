@@ -81,10 +81,12 @@ export default function DashboardPage() {
                 Quick Tailor
               </Button>
             </Link>
-            <Button>
-              <PlusCircle className="w-4 h-4 mr-2" />
-              New Resume
-            </Button>
+            <Link href="/tailor">
+              <Button>
+                <PlusCircle className="w-4 h-4 mr-2" />
+                Upload Resume
+              </Button>
+            </Link>
           </div>
         </div>
 
@@ -93,11 +95,13 @@ export default function DashboardPage() {
         ) : resumes.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-lg border border-dashed">
             <h3 className="text-lg font-medium text-gray-900">No resumes yet</h3>
-            <p className="text-gray-500 mt-1 mb-4">Create your first resume to get started.</p>
-            <Button>
-              <PlusCircle className="w-4 h-4 mr-2" />
-              Create Resume
-            </Button>
+            <p className="text-gray-500 mt-1 mb-4">Upload your first resume to get started.</p>
+            <Link href="/tailor">
+              <Button>
+                <PlusCircle className="w-4 h-4 mr-2" />
+                Upload Resume
+              </Button>
+            </Link>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
