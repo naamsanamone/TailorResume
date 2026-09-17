@@ -79,10 +79,13 @@ def _extract_resume_text(resume_sections: List[Dict[str, Any]]) -> str:
                 if "title" in entry: text_parts.append(entry["title"])
                 if "company" in entry: text_parts.append(entry["company"])
                 if "bullets" in entry: text_parts.extend(entry["bullets"])
-        if "categories" in section:
-            for cat in section["categories"]:
-                if "items" in cat:
-                    text_parts.extend(cat["items"])
+        if "categories" in section and isinstance(section["categories"], dict):
+            for cat_name, cat_skills in section["categories"].items():
+                text_parts.append(cat_name)
+                if isinstance(cat_skills, str):
+                    text_parts.append(cat_skills)
+                elif isinstance(cat_skills, list):
+                    text_parts.extend(cat_skills)
     return " ".join(text_parts).lower()
 
 async def match_resume_to_jd(resume_sections: List[Dict[str, Any]], jd_analysis: Dict[str, Any]) -> Dict[str, Any]:
