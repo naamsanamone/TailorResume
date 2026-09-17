@@ -9,7 +9,7 @@ from app.models.user import User
 from app.models.resume import Resume
 from app.schemas.resume import ResumeCreate, ResumeUpdate, ResumeResponse, ResumeListResponse
 
-router = APIRouter(prefix="/resumes", tags=["resumes"])
+router = APIRouter()
 
 @router.get("/", response_model=List[ResumeListResponse])
 async def list_resumes(
@@ -39,7 +39,7 @@ async def create_resume(
 
 @router.get("/{resume_id}", response_model=ResumeResponse)
 async def get_resume(
-    resume_id: str,
+    resume_id: int,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ) -> Any:
@@ -56,7 +56,7 @@ async def get_resume(
 
 @router.put("/{resume_id}", response_model=ResumeResponse)
 async def update_resume(
-    resume_id: str,
+    resume_id: int,
     request: ResumeUpdate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -81,7 +81,7 @@ async def update_resume(
 
 @router.delete("/{resume_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_resume(
-    resume_id: str,
+    resume_id: int,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ) -> None:

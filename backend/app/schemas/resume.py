@@ -29,7 +29,7 @@ class EducationEntry(BaseModel):
 
 class ResumeSection(BaseModel):
     name: str
-    type: Literal["header", "summary", "experience", "education", "projects", "skills", "custom"]
+    type: Literal["header", "summary", "experience", "education", "projects", "skills", "list", "custom"]
     
     # Header specific
     fullName: Optional[str] = None
@@ -44,7 +44,7 @@ class ResumeSection(BaseModel):
     text: Optional[str] = None
     
     # Skills specific
-    categories: Optional[List[Dict[str, Any]]] = None
+    categories: Optional[Dict[str, str]] = None
     items: Optional[List[str]] = None
     
     # Entries specific

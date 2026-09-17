@@ -1,59 +1,70 @@
+"""TailorResume — Authentication API Routes"""
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Any
-
-from app.schemas.auth import RegisterRequest, LoginRequest, AuthResponse, UserInfo
-from app.database import get_db
-from app.auth import get_current_user, get_password_hash, verify_password, create_access_token
-from app.models.user import User
 from sqlalchemy import select
+import logging
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+from app.database import get_db
+from app.auth import hash_password, verify_password, create_access_token, get_current_user
+from app.models.user import User
+from app.schemas.auth import RegisterRequest, LoginRequest, AuthResponse, UserResponse
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter()
+
 
 @router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
-async def register(request: RegisterRequest, db: AsyncSession = Depends(get_db)) -> Any:
-    """
-    Register a new user.
-    """
+async def register(request: RegisterRequest, db: AsyncSession = Depends(get_db)):
+    """Register a new user account."""
+    # Check if email already exists
     result = await db.execute(select(User).where(User.email == request.email))
     if result.scalars().first():
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
-    
-    hashed_password = get_password_hash(request.password)
+        raise HTTPException(status_code=409, detail="Email already registered")
+
+    # Create user
     user = User(
         email=request.email,
-        hashed_password=hashed_password,
-        first_name=request.first_name,
-        last_name=request.last_name
+        password_hash=hash_password(request.password),
+        name=request.name,
     )
     db.add(user)
     await db.commit()
     await db.refresh(user)
-    
-    access_token = create_access_token(data={"sub": str(user.id)})
-    return AuthResponse(access_token=access_token, token_type="bearer", user=user)
+
+    token = create_access_token(user.id, user.email)
+    logger.info(f"User registered: {user.email}")
+    return AuthResponse(
+        access_token=token,
+        token_type="bearer",
+        user=UserResponse.model_validate(user),
+    )
+
 
 @router.post("/login", response_model=AuthResponse)
-async def login(request: LoginRequest, db: AsyncSession = Depends(get_db)) -> Any:
-    """
-    Authenticate user and return JWT token.
-    """
+async def login(request: LoginRequest, db: AsyncSession = Depends(get_db)):
+    """Authenticate user and return JWT token."""
     result = await db.execute(select(User).where(User.email == request.email))
     user = result.scalars().first()
-    
-    if not user or not verify_password(request.password, user.hashed_password):
+
+    if not user or not verify_password(request.password, user.password_hash):
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
+            status_code=401,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-        
-    access_token = create_access_token(data={"sub": str(user.id)})
-    return AuthResponse(access_token=access_token, token_type="bearer", user=user)
 
-@router.get("/me", response_model=UserInfo)
-async def get_me(current_user: User = Depends(get_current_user)) -> Any:
-    """
-    Get current logged in user information.
-    """
-    return current_user
+    token = create_access_token(user.id, user.email)
+    logger.info(f"User logged in: {user.email}")
+    return AuthResponse(
+        access_token=token,
+        token_type="bearer",
+        user=UserResponse.model_validate(user),
+    )
+
+
+@router.get("/me", response_model=UserResponse)
+async def get_me(current_user: User = Depends(get_current_user)):
+    """Get current authenticated user info."""
+    return UserResponse.model_validate(current_user)

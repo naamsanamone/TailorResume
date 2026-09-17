@@ -1,32 +1,31 @@
-"""TailorResume - Auth Schemas"""
+"""TailorResume — Auth Schemas"""
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 
 
 class RegisterRequest(BaseModel):
-    email: EmailStr
+    email: str
     password: str
     name: Optional[str] = None
 
 
 class LoginRequest(BaseModel):
-    email: EmailStr
+    email: str
     password: str
 
 
 class UserResponse(BaseModel):
     id: int
-    email: EmailStr
-    name: Optional[str]
-    created_at: datetime
+    email: str
+    name: Optional[str] = None
+    created_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class AuthResponse(BaseModel):
     access_token: str
-    token_type: str
+    token_type: str = "bearer"
     user: UserResponse
