@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
     
     # Database
-    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/tailorresume"
+    DATABASE_URL: str = "sqlite+aiosqlite:///./tailorresume.db"
     
     # JWT Auth
     JWT_SECRET: str = "change-this-secret-key"

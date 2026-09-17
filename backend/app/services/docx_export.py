@@ -52,13 +52,13 @@ async def generate_docx(resume_sections: List[Dict[str, Any]]) -> bytes:
                 doc.add_paragraph(sec.get("text", ""))
                 
             elif sec_type == "skills":
-                cats = sec.get("categories", [])
-                if cats:
-                    for cat in cats:
+                cats = sec.get("categories", {})
+                if isinstance(cats, dict) and cats:
+                    for cat_name, cat_skills in cats.items():
                         p = doc.add_paragraph()
-                        r_cat = p.add_run(f"{cat.get('name', '')}: ")
+                        r_cat = p.add_run(f"{cat_name}: ")
                         r_cat.bold = True
-                        p.add_run(", ".join(cat.get("items", [])))
+                        p.add_run(cat_skills if isinstance(cat_skills, str) else ", ".join(cat_skills))
                 elif sec.get("items"):
                     doc.add_paragraph(", ".join(sec.get("items", [])))
                     
@@ -66,7 +66,7 @@ async def generate_docx(resume_sections: List[Dict[str, Any]]) -> bytes:
                 for entry in sec.get("entries", []):
                     title = entry.get("title", "") or entry.get("degree", "") or entry.get("name", "")
                     org = entry.get("company", "") or entry.get("institution", "")
-                    date = entry.get("date", "")
+                    date = entry.get("duration", "") or entry.get("date", "") or entry.get("year", "")
                     loc = entry.get("location", "")
                     
                     p1 = doc.add_paragraph()
