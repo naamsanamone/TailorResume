@@ -70,42 +70,71 @@ def _extract_resume_text(resume_sections: List[Dict[str, Any]]) -> str:
     """Helper to extract all text from resume sections."""
     text_parts = []
     for section in resume_sections:
-        if "text" in section and section["text"]:
+        if not section:
+            continue
+        if section.get("text"):
             text_parts.append(section["text"])
-        if "items" in section:
-            text_parts.extend([item for item in section["items"] if isinstance(item, str)])
-        if "entries" in section:
-            for entry in section["entries"]:
-                if "title" in entry: text_parts.append(entry["title"])
-                if "company" in entry: text_parts.append(entry["company"])
-                if "bullets" in entry: text_parts.extend(entry["bullets"])
-        if "categories" in section and isinstance(section["categories"], dict):
-            for cat_name, cat_skills in section["categories"].items():
+        if section.get("fullName"):
+            text_parts.append(section["fullName"])
+        for item in (section.get("items") or []):
+            if isinstance(item, str):
+                text_parts.append(item)
+        for entry in (section.get("entries") or []):
+            if not isinstance(entry, dict):
+                continue
+            if entry.get("title"): text_parts.append(entry["title"])
+            if entry.get("company"): text_parts.append(entry["company"])
+            if entry.get("institution"): text_parts.append(entry["institution"])
+            if entry.get("degree"): text_parts.append(entry["degree"])
+            for bullet in (entry.get("bullets") or []):
+                if isinstance(bullet, str):
+                    text_parts.append(bullet)
+        cats = section.get("categories")
+        if isinstance(cats, dict):
+            for cat_name, cat_skills in cats.items():
                 text_parts.append(cat_name)
                 if isinstance(cat_skills, str):
                     text_parts.append(cat_skills)
                 elif isinstance(cat_skills, list):
-                    text_parts.extend(cat_skills)
+                    text_parts.extend([s for s in cat_skills if isinstance(s, str)])
     return " ".join(text_parts).lower()
 
 async def match_resume_to_jd(resume_sections: List[Dict[str, Any]], jd_analysis: Dict[str, Any]) -> Dict[str, Any]:
     """Perform matching between resume and JD."""
     resume_text = _extract_resume_text(resume_sections)
     
-    jd_skills = []
-    jd_skills.extend(jd_analysis.get("hardSkills", []))
-    jd_skills.extend(jd_analysis.get("softSkills", []))
-    jd_skills.extend(jd_analysis.get("tools", []))
-    jd_skills.extend([jd_analysis.get("domain", "")])
-    jd_skills = [s for s in jd_skills if s.strip()]
+    # Collect all JD skills safely
+    jd_skills: List[str] = []
+    for key in ("hardSkills", "softSkills", "tools"):
+        items = jd_analysis.get(key) or []
+        for item in items:
+            if isinstance(item, str) and item.strip():
+                jd_skills.append(item.strip())
+    
+    domain = jd_analysis.get("domain", "")
+    if isinstance(domain, str) and domain.strip():
+        jd_skills.append(domain.strip())
+    
+    # Deduplicate
+    jd_skills_unique = list(set(jd_skills))
+    
+    if not jd_skills_unique:
+        return {
+            "matched_skills": [],
+            "partial_matches": [],
+            "missing_skills": [],
+            "keyword_match_rate": 0.0,
+            "semantic_similarity": 0.0,
+        }
     
     matched_skills = []
     partial_matches = []
     missing_skills = []
     
-    for jd_skill in set(jd_skills):
+    for jd_skill in jd_skills_unique:
         skill_found = False
         
+        # Exact keyword match
         norm_jd = normalize_skill(jd_skill)
         escaped_skill = re.escape(norm_jd)
         if re.search(rf'\b{escaped_skill}\b', resume_text):
@@ -113,6 +142,7 @@ async def match_resume_to_jd(resume_sections: List[Dict[str, Any]], jd_analysis:
             skill_found = True
             continue
             
+        # Fuzzy / stem match
         for token in resume_text.split():
             if fuzzy_match(jd_skill, token) or stem_match(jd_skill, token):
                 matched_skills.append({"skill": jd_skill, "match_type": "fuzzy", "confidence": 0.9})
@@ -122,9 +152,10 @@ async def match_resume_to_jd(resume_sections: List[Dict[str, Any]], jd_analysis:
         if skill_found:
             continue
             
+        # Semantic match
         sentences = [s.strip() for s in resume_text.split('.') if len(s.strip()) > 10]
         max_sim = 0.0
-        for sentence in sentences:
+        for sentence in sentences[:30]:  # Limit to 30 sentences for performance
             sim = compute_similarity(jd_skill, sentence)
             if sim > max_sim:
                 max_sim = sim
@@ -136,16 +167,23 @@ async def match_resume_to_jd(resume_sections: List[Dict[str, Any]], jd_analysis:
         else:
             missing_skills.append(jd_skill)
             
-    total_keywords = len(jd_skills)
+    total_keywords = len(jd_skills_unique)
     keyword_match_rate = len(matched_skills) / total_keywords if total_keywords > 0 else 0.0
     
-    jd_full_text = " ".join([str(v) for v in jd_analysis.values() if v])
-    overall_semantic_sim = compute_similarity(jd_full_text, resume_text)
+    # Build JD text for overall semantic similarity
+    jd_text_parts = []
+    for v in jd_analysis.values():
+        if isinstance(v, str) and v:
+            jd_text_parts.append(v)
+        elif isinstance(v, list):
+            jd_text_parts.extend([str(item) for item in v if item])
+    jd_full_text = " ".join(jd_text_parts)
+    overall_semantic_sim = compute_similarity(jd_full_text, resume_text) if jd_full_text.strip() else 0.0
     
     return {
         "matched_skills": matched_skills,
         "partial_matches": partial_matches,
         "missing_skills": missing_skills,
         "keyword_match_rate": keyword_match_rate,
-        "semantic_similarity": overall_semantic_sim
+        "semantic_similarity": overall_semantic_sim,
     }
