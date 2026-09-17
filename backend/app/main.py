@@ -63,3 +63,9 @@ async def health_check():
         "llm_provider": settings.LLM_PROVIDER,
         "llm_model": settings.LLM_MODEL,
     }
+
+
+@app.get("/")
+async def root():
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/docs")
