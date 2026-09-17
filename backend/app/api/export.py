@@ -1,44 +1,66 @@
-from fastapi import APIRouter, Depends
-from fastapi.responses import StreamingResponse
-from typing import Any
-import io
+"""TailorResume — PDF & DOCX Export API Routes"""
+
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response
+from typing import List
+import logging
 
 from app.auth import get_current_user
 from app.models.user import User
-from app.schemas.export import ExportRequest
+from app.schemas.resume import ResumeSection
+from app.services.pdf_export import generate_pdf
+from app.services.docx_export import generate_docx
 
-router = APIRouter(prefix="/export", tags=["export"])
+logger = logging.getLogger(__name__)
+
+router = APIRouter()
+
+
+class ExportRequest:
+    """Request body for export endpoints."""
+    pass
+
+
+from pydantic import BaseModel
+
+class ExportRequestBody(BaseModel):
+    sections: List[ResumeSection]
+    template: str = "jake_classic"
+
 
 @router.post("/pdf")
 async def export_pdf(
-    request: ExportRequest,
-    current_user: User = Depends(get_current_user)
-) -> Any:
-    """
-    Export a resume as a PDF file.
-    """
-    # TODO: Integrate with PDF generation service
-    # Stub response
-    file_content = b"PDF placeholder content"
-    return StreamingResponse(
-        io.BytesIO(file_content),
-        media_type="application/pdf",
-        headers={"Content-Disposition": "attachment; filename=resume.pdf"}
-    )
+    body: ExportRequestBody,
+    current_user: User = Depends(get_current_user),
+):
+    """Generate an ATS-friendly PDF from resume sections."""
+    try:
+        sections = [s.model_dump() for s in body.sections]
+        pdf_bytes = await generate_pdf(sections, body.template)
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": "attachment; filename=tailored_resume.pdf"},
+        )
+    except Exception as e:
+        logger.error(f"PDF generation failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate PDF: {str(e)}")
+
 
 @router.post("/docx")
 async def export_docx(
-    request: ExportRequest,
-    current_user: User = Depends(get_current_user)
-) -> Any:
-    """
-    Export a resume as a DOCX file.
-    """
-    # TODO: Integrate with DOCX generation service
-    # Stub response
-    file_content = b"DOCX placeholder content"
-    return StreamingResponse(
-        io.BytesIO(file_content),
-        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        headers={"Content-Disposition": "attachment; filename=resume.docx"}
-    )
+    body: ExportRequestBody,
+    current_user: User = Depends(get_current_user),
+):
+    """Generate an ATS-friendly DOCX from resume sections."""
+    try:
+        sections = [s.model_dump() for s in body.sections]
+        docx_bytes = await generate_docx(sections)
+        return Response(
+            content=docx_bytes,
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={"Content-Disposition": "attachment; filename=tailored_resume.docx"},
+        )
+    except Exception as e:
+        logger.error(f"DOCX generation failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate DOCX: {str(e)}")
