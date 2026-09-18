@@ -137,12 +137,13 @@ def render_html(sections: List[Dict[str, Any]]) -> str:
             <div class="section">
                 <div class="section-title">{sec.get('name', 'Skills')}</div>
             """
-            cats = sec.get("categories", [])
-            if cats:
-                for cat in cats:
+            cats = sec.get("categories", {})
+            if isinstance(cats, dict) and cats:
+                for cat_name, cat_skills in cats.items():
+                    skills_str = cat_skills if isinstance(cat_skills, str) else ", ".join(cat_skills)
                     content += f"""
                     <div class="skills-category">
-                        <strong>{cat.get('name', '')}:</strong> {", ".join(cat.get('items', []))}
+                        <strong>{cat_name}:</strong> {skills_str}
                     </div>
                     """
             elif sec.get("items"):
