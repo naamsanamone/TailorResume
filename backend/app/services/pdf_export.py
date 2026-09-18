@@ -1,107 +1,343 @@
-"""TailorResume — PDF Export using fpdf2 (pure Python, no browser needed)"""
+"""TailorResume — Professional ATS PDF Export using ReportLab
 
-import os
-import re
+Jake's Resume template style:
+- Single column, 0.5" margins
+- Helvetica 11pt base, 16pt name
+- Section headings: bold uppercase + horizontal rule
+- Entry: bold title left, date right (same line)
+- Italic company left, location right
+- Bullets with proper indentation and text wrapping
+- Skills: "Category: skill1, skill2" format
+"""
+
 import logging
 from typing import List, Dict, Any
-from fpdf import FPDF
+
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.units import inch
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
+from reportlab.lib.colors import black, HexColor
+from reportlab.platypus import (
+    SimpleDocTemplate, Paragraph, Spacer, HRFlowable, Table, TableStyle,
+    KeepTogether
+)
 
 logger = logging.getLogger(__name__)
 
 
-def _sanitize(text: Any) -> str:
-    """Remove or replace Unicode chars that aren't in standard PDF fonts."""
-    if text is None:
+def _safe(val: Any) -> str:
+    """Safely convert to string, strip None, escape XML entities for ReportLab."""
+    if val is None:
         return ""
-    s = str(text)
-    # Replace common unicode chars with ASCII equivalents
-    replacements = {
-        "\u2022": "-",   # •
-        "\u2013": "-",   # –
-        "\u2014": "-",   # —
-        "\u2018": "'",   # '
-        "\u2019": "'",   # '
-        "\u201c": '"',   # "
-        "\u201d": '"',   # "
-        "\u2026": "...", # …
-        "\u00b7": "-",   # ·
-        "\u25aa": "-",   # ▪
-        "\u25ba": "-",   # ►
-        "\u25cb": "-",   # ○
-        "\u2192": "->",  # →
-        "\u00a0": " ",   # non-breaking space
-        "\u200b": "",    # zero-width space
-        "\u00e9": "e",   # é
-        "\u00e8": "e",   # è
-        "\u00f1": "n",   # ñ
-        "\ud83d": "",    # emoji range start
-    }
-    for old, new in replacements.items():
-        s = s.replace(old, new)
-    # Strip any remaining non-ASCII chars
-    s = s.encode("ascii", errors="ignore").decode("ascii")
-    return s.strip()
+    s = str(val).strip()
+    # Escape XML entities that ReportLab's Paragraph parser needs
+    s = s.replace("&", "&amp;")
+    s = s.replace("<", "&lt;")
+    s = s.replace(">", "&gt;")
+    return s
 
 
-class ResumePDF(FPDF):
-    """Custom PDF class for ATS-friendly resume generation."""
+def _build_styles():
+    """Build paragraph styles matching Jake's Resume template."""
+    styles = getSampleStyleSheet()
 
-    def __init__(self):
-        super().__init__()
-        self.set_auto_page_break(auto=True, margin=15)
-        self.add_page()
-        self.set_margins(12.7, 12.7, 12.7)  # 0.5 inch margins
-        self.set_font("Helvetica", size=10)
+    styles.add(ParagraphStyle(
+        name="ResumeName",
+        fontName="Helvetica-Bold",
+        fontSize=16,
+        leading=20,
+        alignment=TA_CENTER,
+        spaceAfter=2,
+        textColor=black,
+    ))
 
-    def section_title(self, title: str):
-        """Render a section heading with underline."""
-        self.ln(3)
-        self.set_font("Helvetica", "B", 11)
-        self.cell(0, 6, _sanitize(title).upper(), new_x="LMARGIN", new_y="NEXT")
-        self.set_draw_color(0, 0, 0)
-        self.line(self.l_margin, self.get_y(), self.w - self.r_margin, self.get_y())
-        self.ln(3)
+    styles.add(ParagraphStyle(
+        name="ContactInfo",
+        fontName="Helvetica",
+        fontSize=9,
+        leading=12,
+        alignment=TA_CENTER,
+        spaceAfter=6,
+        textColor=HexColor("#333333"),
+    ))
 
-    def entry_header(self, left: str, right: str):
-        """Render entry header with title left, date right."""
-        self.set_font("Helvetica", "B", 10)
-        page_width = self.w - self.l_margin - self.r_margin
-        self.cell(page_width * 0.7, 5, _sanitize(left), new_x="RIGHT")
-        self.set_font("Helvetica", "", 10)
-        self.cell(page_width * 0.3, 5, _sanitize(right), align="R", new_x="LMARGIN", new_y="NEXT")
+    styles.add(ParagraphStyle(
+        name="SectionHeading",
+        fontName="Helvetica-Bold",
+        fontSize=11,
+        leading=14,
+        spaceBefore=8,
+        spaceAfter=2,
+        textColor=black,
+    ))
 
-    def entry_subheader(self, left: str, right: str):
-        """Render entry subheader (company/location) in italic."""
-        self.set_font("Helvetica", "I", 10)
-        page_width = self.w - self.l_margin - self.r_margin
-        self.cell(page_width * 0.7, 5, _sanitize(left), new_x="RIGHT")
-        self.cell(page_width * 0.3, 5, _sanitize(right), align="R", new_x="LMARGIN", new_y="NEXT")
-        self.ln(1)
+    styles.add(ParagraphStyle(
+        name="SummaryText",
+        fontName="Helvetica",
+        fontSize=10,
+        leading=13,
+        alignment=TA_JUSTIFY,
+        spaceAfter=4,
+    ))
 
-    def bullet_point(self, text: str):
-        """Render a bullet point."""
-        self.set_font("Helvetica", "", 10)
-        indent = 5
-        self.set_x(self.l_margin + indent)
-        page_width = self.w - self.l_margin - self.r_margin - indent - 3
-        self.cell(3, 5, "-")
-        self.multi_cell(page_width, 5, f" {_sanitize(text)}")
+    styles.add(ParagraphStyle(
+        name="EntryTitle",
+        fontName="Helvetica-Bold",
+        fontSize=10,
+        leading=13,
+    ))
 
-    def skill_line(self, category: str, skills: str):
-        """Render a skill category line."""
-        self.set_font("Helvetica", "B", 10)
-        cat_text = f"{_sanitize(category)}: "
-        cat_width = self.get_string_width(cat_text) + 2
-        self.cell(cat_width, 5, cat_text)
-        self.set_font("Helvetica", "", 10)
-        remaining = self.w - self.l_margin - self.r_margin - cat_width
-        self.multi_cell(remaining, 5, _sanitize(skills))
+    styles.add(ParagraphStyle(
+        name="EntrySubtitle",
+        fontName="Helvetica-Oblique",
+        fontSize=10,
+        leading=13,
+    ))
+
+    styles.add(ParagraphStyle(
+        name="EntryDate",
+        fontName="Helvetica",
+        fontSize=10,
+        leading=13,
+        alignment=TA_LEFT,
+    ))
+
+    styles.add(ParagraphStyle(
+        name="BulletText",
+        fontName="Helvetica",
+        fontSize=10,
+        leading=13,
+        leftIndent=15,
+        bulletIndent=5,
+        spaceAfter=1,
+    ))
+
+    styles.add(ParagraphStyle(
+        name="SkillCategory",
+        fontName="Helvetica",
+        fontSize=10,
+        leading=13,
+        spaceAfter=2,
+    ))
+
+    return styles
+
+
+def _section_heading(text: str, styles):
+    """Return a section heading with horizontal rule."""
+    elements = []
+    elements.append(Paragraph(_safe(text).upper(), styles["SectionHeading"]))
+    elements.append(HRFlowable(
+        width="100%", thickness=0.5, color=black,
+        spaceBefore=1, spaceAfter=4
+    ))
+    return elements
+
+
+def _entry_header_table(left_text: str, right_text: str, styles, bold_left=True, italic_left=False):
+    """Create a two-column row: left text + right-aligned date."""
+    left_style = "EntryTitle" if bold_left else ("EntrySubtitle" if italic_left else "EntryDate")
+    data = [[
+        Paragraph(_safe(left_text), styles[left_style]),
+        Paragraph(_safe(right_text), styles["EntryDate"]),
+    ]]
+    page_width = letter[0] - 1 * inch  # total usable width with 0.5" margins
+    table = Table(data, colWidths=[page_width * 0.75, page_width * 0.25])
+    table.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("ALIGN", (1, 0), (1, 0), "RIGHT"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+    ]))
+    return table
+
+
+def _render_header(sec: dict, styles) -> list:
+    """Render resume header: name centered + headline + contact info single line."""
+    elements = []
+    name = _safe(sec.get("fullName"))
+    if name:
+        elements.append(Paragraph(name, styles["ResumeName"]))
+
+    # Target job title headline
+    headline = _safe(sec.get("headline"))
+    if headline:
+        elements.append(Paragraph(headline, styles["ContactInfo"]))
+
+    # Build contact line
+    contact_parts = []
+    for field in ("phone", "email", "linkedin", "github", "portfolio", "location"):
+        val = sec.get(field)
+        if val:
+            contact_parts.append(_safe(val))
+    if contact_parts:
+        elements.append(Paragraph(" | ".join(contact_parts), styles["ContactInfo"]))
+
+    elements.append(Spacer(1, 4))
+    return elements
+
+
+def _render_summary(sec: dict, styles) -> list:
+    """Render professional summary section."""
+    elements = list(_section_heading(sec.get("name") or "Professional Summary", styles))
+    text = _safe(sec.get("text"))
+    if text:
+        elements.append(Paragraph(text, styles["SummaryText"]))
+    return elements
+
+
+def _render_experience(sec: dict, styles) -> list:
+    """Render experience/projects section with entries and bullets."""
+    elements = list(_section_heading(sec.get("name") or "Professional Experience", styles))
+
+    for entry in (sec.get("entries") or []):
+        if not isinstance(entry, dict):
+            continue
+
+        entry_elements = []
+        title = _safe(entry.get("title") or entry.get("name"))
+        duration = _safe(entry.get("duration") or entry.get("date"))
+        company = _safe(entry.get("company"))
+        location = _safe(entry.get("location"))
+
+        # Title | Date row
+        if title or duration:
+            entry_elements.append(_entry_header_table(title, duration, styles, bold_left=True))
+
+        # Company | Location row
+        if company or location:
+            entry_elements.append(_entry_header_table(company, location, styles, bold_left=False, italic_left=True))
+
+        # Bullets
+        for bullet in (entry.get("bullets") or []):
+            if isinstance(bullet, str) and bullet.strip():
+                # Clean bullet prefix if present
+                clean = bullet.strip()
+                for prefix in ("- ", "* ", "• ", "– ", "· "):
+                    if clean.startswith(prefix):
+                        clean = clean[len(prefix):]
+                        break
+                entry_elements.append(Paragraph(
+                    f"\u2022 {_safe(clean)}",
+                    styles["BulletText"]
+                ))
+
+        entry_elements.append(Spacer(1, 4))
+
+        # Keep each entry together on the same page
+        elements.append(KeepTogether(entry_elements))
+
+    return elements
+
+
+def _render_education(sec: dict, styles) -> list:
+    """Render education section."""
+    elements = list(_section_heading(sec.get("name") or "Education", styles))
+
+    for entry in (sec.get("entries") or []):
+        if not isinstance(entry, dict):
+            continue
+
+        entry_elements = []
+        degree = _safe(entry.get("degree") or entry.get("title"))
+        year = _safe(entry.get("year") or entry.get("duration") or entry.get("date"))
+        institution = _safe(entry.get("institution") or entry.get("company"))
+        location = _safe(entry.get("location"))
+
+        if degree or year:
+            entry_elements.append(_entry_header_table(degree, year, styles, bold_left=True))
+        if institution or location:
+            entry_elements.append(_entry_header_table(institution, location, styles, bold_left=False, italic_left=True))
+
+        for bullet in (entry.get("bullets") or []):
+            if isinstance(bullet, str) and bullet.strip():
+                entry_elements.append(Paragraph(f"\u2022 {_safe(bullet)}", styles["BulletText"]))
+
+        entry_elements.append(Spacer(1, 3))
+        elements.append(KeepTogether(entry_elements))
+
+    return elements
+
+
+def _render_skills(sec: dict, styles) -> list:
+    """Render skills section with categories."""
+    elements = list(_section_heading(sec.get("name") or "Technical Skills", styles))
+
+    cats = sec.get("categories")
+    if isinstance(cats, dict) and cats:
+        for cat_name, cat_skills in cats.items():
+            if isinstance(cat_skills, str):
+                skills_str = cat_skills
+            elif isinstance(cat_skills, list):
+                skills_str = ", ".join(str(s) for s in cat_skills)
+            else:
+                skills_str = str(cat_skills)
+            elements.append(Paragraph(
+                f"<b>{_safe(cat_name)}:</b> {_safe(skills_str)}",
+                styles["SkillCategory"]
+            ))
+
+    items = sec.get("items")
+    if isinstance(items, list) and items:
+        elements.append(Paragraph(
+            _safe(", ".join(str(s) for s in items)),
+            styles["SkillCategory"]
+        ))
+
+    return elements
+
+
+def _render_list_section(sec: dict, styles) -> list:
+    """Render a list section (certifications, awards, etc.)."""
+    elements = list(_section_heading(sec.get("name") or "Additional", styles))
+
+    for item in (sec.get("items") or []):
+        if isinstance(item, str) and item.strip():
+            elements.append(Paragraph(f"\u2022 {_safe(item)}", styles["BulletText"]))
+
+    return elements
+
+
+def _render_custom(sec: dict, styles) -> list:
+    """Render a custom section."""
+    elements = []
+    name = sec.get("name")
+    if name:
+        elements.extend(_section_heading(name, styles))
+    text = _safe(sec.get("text"))
+    if text:
+        elements.append(Paragraph(text, styles["SummaryText"]))
+    return elements
 
 
 async def generate_pdf(resume_sections: List[Dict[str, Any]], template: str = "jake_classic") -> bytes:
-    """Generate ATS-friendly PDF bytes from resume sections."""
+    """Generate a professional ATS-friendly PDF using ReportLab.
+
+    Uses Jake's Resume template style:
+    - Single column, 0.5" margins, Helvetica
+    - Clean section headings with horizontal rules
+    - Proper text wrapping and pagination
+    """
+    import io
+
     try:
-        pdf = ResumePDF()
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=letter,
+            topMargin=0.5 * inch,
+            bottomMargin=0.5 * inch,
+            leftMargin=0.5 * inch,
+            rightMargin=0.5 * inch,
+            title="Resume",
+            author="TailorResume",
+        )
+
+        styles = _build_styles()
+        story = []
 
         for sec in resume_sections:
             if not isinstance(sec, dict):
@@ -109,93 +345,27 @@ async def generate_pdf(resume_sections: List[Dict[str, Any]], template: str = "j
             sec_type = (sec.get("type") or "").lower()
 
             if sec_type == "header":
-                name = _sanitize(sec.get("fullName"))
-                if name:
-                    pdf.set_font("Helvetica", "B", 16)
-                    pdf.cell(0, 8, name, align="C", new_x="LMARGIN", new_y="NEXT")
-
-                contact_parts = []
-                for field in ("email", "phone", "location", "linkedin", "github", "portfolio"):
-                    val = sec.get(field)
-                    if val:
-                        contact_parts.append(_sanitize(val))
-                if contact_parts:
-                    pdf.set_font("Helvetica", "", 9)
-                    pdf.cell(0, 5, " | ".join(contact_parts), align="C", new_x="LMARGIN", new_y="NEXT")
-                pdf.ln(2)
-
+                story.extend(_render_header(sec, styles))
             elif sec_type == "summary":
-                pdf.section_title(sec.get("name") or "Professional Summary")
-                text = _sanitize(sec.get("text"))
-                if text:
-                    pdf.set_font("Helvetica", "", 10)
-                    pdf.multi_cell(0, 5, text)
-
+                story.extend(_render_summary(sec, styles))
             elif sec_type in ("experience", "projects"):
-                pdf.section_title(sec.get("name") or sec_type.title())
-                for entry in (sec.get("entries") or []):
-                    if not isinstance(entry, dict):
-                        continue
-                    title = _sanitize(entry.get("title") or entry.get("name"))
-                    duration = _sanitize(entry.get("duration") or entry.get("date"))
-                    company = _sanitize(entry.get("company"))
-                    location = _sanitize(entry.get("location"))
-
-                    pdf.entry_header(title, duration)
-                    if company or location:
-                        pdf.entry_subheader(company, location)
-
-                    for bullet in (entry.get("bullets") or []):
-                        if isinstance(bullet, str) and bullet.strip():
-                            pdf.bullet_point(bullet)
-                    pdf.ln(1)
-
+                story.extend(_render_experience(sec, styles))
             elif sec_type == "education":
-                pdf.section_title(sec.get("name") or "Education")
-                for entry in (sec.get("entries") or []):
-                    if not isinstance(entry, dict):
-                        continue
-                    degree = _sanitize(entry.get("degree") or entry.get("title"))
-                    year = _sanitize(entry.get("year") or entry.get("duration") or entry.get("date"))
-                    institution = _sanitize(entry.get("institution") or entry.get("company"))
-                    location = _sanitize(entry.get("location"))
-
-                    pdf.entry_header(degree, year)
-                    if institution or location:
-                        pdf.entry_subheader(institution, location)
-
-                    for bullet in (entry.get("bullets") or []):
-                        if isinstance(bullet, str) and bullet.strip():
-                            pdf.bullet_point(bullet)
-
+                story.extend(_render_education(sec, styles))
             elif sec_type == "skills":
-                pdf.section_title(sec.get("name") or "Skills")
-                cats = sec.get("categories")
-                if isinstance(cats, dict) and cats:
-                    for cat_name, cat_skills in cats.items():
-                        skills_str = cat_skills if isinstance(cat_skills, str) else ", ".join(str(s) for s in cat_skills)
-                        pdf.skill_line(str(cat_name), skills_str)
-                items = sec.get("items")
-                if isinstance(items, list) and items:
-                    pdf.set_font("Helvetica", "", 10)
-                    pdf.multi_cell(0, 5, _sanitize(", ".join(str(s) for s in items)))
-
+                story.extend(_render_skills(sec, styles))
             elif sec_type == "list":
-                pdf.section_title(sec.get("name") or "Additional")
-                for item in (sec.get("items") or []):
-                    if isinstance(item, str) and item.strip():
-                        pdf.bullet_point(item)
-
+                story.extend(_render_list_section(sec, styles))
             elif sec_type == "custom":
-                name = sec.get("name")
-                if name:
-                    pdf.section_title(name)
-                text = _sanitize(sec.get("text"))
-                if text:
-                    pdf.set_font("Helvetica", "", 10)
-                    pdf.multi_cell(0, 5, text)
+                story.extend(_render_custom(sec, styles))
 
-        return bytes(pdf.output())
+        doc.build(story)
+        pdf_bytes = buffer.getvalue()
+        buffer.close()
+
+        logger.info(f"Generated PDF: {len(pdf_bytes)} bytes")
+        return pdf_bytes
+
     except Exception as e:
-        logger.error(f"PDF generation failed: {e}")
+        logger.error(f"PDF generation failed: {e}", exc_info=True)
         raise ValueError(f"Failed to generate PDF: {str(e)}")

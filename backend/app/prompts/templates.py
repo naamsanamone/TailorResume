@@ -31,7 +31,7 @@ JSON Schema structure expected for 'sections':
         "title": "string",
         "company": "string",
         "location": "string",
-        "date": "string",
+        "duration": "string",
         "bullets": ["string"]
       }}
     ]
@@ -44,19 +44,16 @@ JSON Schema structure expected for 'sections':
         "degree": "string",
         "institution": "string",
         "location": "string",
-        "date": "string"
+        "year": "string"
       }}
     ]
   }},
   {{
     "name": "Skills",
     "type": "skills",
-    "categories": [
-      {{
-        "name": "string",
-        "items": ["string"]
-      }}
-    ]
+    "categories": {{
+      "Category Name": "skill1, skill2, skill3"
+    }}
   }}
 ]
 
@@ -75,31 +72,35 @@ Extract and return a JSON object with the following fields:
 - seniority: string (e.g. Junior, Senior, Lead)
 - experienceLevel: string (e.g. 3-5 years)
 - domain: string (e.g. Fintech, Healthcare)
-- hardSkills: array of strings
-- softSkills: array of strings
-- tools: array of strings
-- responsibilities: array of strings
-- requirements: array of strings
+- hardSkills: array of strings (technical skills, programming languages, tools)
+- softSkills: array of strings (communication, leadership, etc.)
+- tools: array of strings (specific tools, platforms, services)
+- responsibilities: array of strings (key job duties)
+- requirements: array of strings (must-have qualifications)
 
 Respond ONLY with valid JSON.
 """
 
 TAILOR_BULLETS_PROMPT = """
-You are an expert resume writer. Rewrite the provided bullet points for a candidate to better match a target job.
+You are an expert resume writer specializing in ATS optimization. Rewrite the provided bullet points to achieve a 95%+ ATS match score.
 
 Role: {job_title}
+
 Original Bullets:
 {bullets}
 
-Missing JD Keywords to incorporate if possible (DO NOT fabricate experience): {missing_skills}
+Missing JD Keywords to incorporate (ONLY if they fit the candidate's actual experience): {missing_skills}
 Target Job Responsibilities for context: {responsibilities}
 
-Rules:
-1. Use the XYZ formula (Accomplished [X] as measured by [Y], by doing [Z]).
-2. Start with strong action verbs.
-3. Quantify achievements where possible.
-4. Incorporate the missing keywords naturally, ONLY if they fit the context of the original bullet.
-5. DO NOT fabricate skills or achievements the candidate does not have.
+STRICT RULES:
+1. Use the Google X-Y-Z formula: "Accomplished [X] as measured by [Y], by doing [Z]"
+2. Start each bullet with a UNIQUE, strong action verb (Engineered, Architected, Spearheaded, Optimized, Automated, Orchestrated, Streamlined). NEVER repeat the same verb.
+3. EVERY bullet MUST contain at least one quantifiable metric (%, $, time saved, scale, users, uptime, throughput).
+4. Use the DUAL-FORM rule for acronyms: write both "Continuous Integration/Continuous Deployment (CI/CD)", "Amazon Web Services (AWS)" etc.
+5. Incorporate missing keywords NATURALLY in context. Example: "Leveraged **Docker** and **Kubernetes** to containerize 15 microservices, reducing deployment time by 60%"
+6. DO NOT fabricate skills or achievements the candidate does not have.
+7. Keep each bullet to 1-2 lines (15-25 words optimal).
+8. Do NOT start any bullet with "Responsible for" or "Worked on".
 
 Output JSON format:
 {{
@@ -109,20 +110,24 @@ Output JSON format:
 """
 
 TAILOR_SUMMARY_PROMPT = """
-You are an expert resume writer. Rewrite the candidate's professional summary to align perfectly with the target role.
+You are an expert resume writer. Rewrite the candidate's professional summary to maximize ATS match score for the target role.
 
 Original Summary: {original_summary}
 Target Role: {job_title} at {company}
 
-Key JD Skills (Hard): {hard_skills}
-Key JD Skills (Soft): {soft_skills}
+Key Hard Skills from JD: {hard_skills}
+Key Soft Skills from JD: {soft_skills}
 Missing Keywords to Target: {missing_skills}
 
-Rules:
-1. Keep it to 3-4 sentences.
-2. Highlight relevant experience that matches the target role.
-3. Incorporate missing keywords naturally without fabricating.
-4. Keep the tone professional, impactful, and concise.
+STRICT RULES:
+1. First sentence: State years of experience + core expertise + target job title.
+   Example: "Senior Backend Engineer with 5+ years of experience designing scalable microservices and distributed systems."
+2. Second sentence: Highlight 3-4 key technical skills from the JD that the candidate possesses.
+3. Third sentence: Mention quantified achievement and domain relevance.
+4. INCORPORATE the target job title naturally.
+5. Use DUAL-FORM for acronyms: "Amazon Web Services (AWS)", "CI/CD" etc.
+6. Keep to exactly 3-4 sentences. Maximum 60 words.
+7. DO NOT fabricate experience.
 
 Output JSON format:
 {{
