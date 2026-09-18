@@ -197,38 +197,42 @@ def _render_experience(sec: dict, styles) -> list:
         if not isinstance(entry, dict):
             continue
 
-        entry_elements = []
+        # Build header elements (title + company)
+        header_elements = []
         title = _safe(entry.get("title") or entry.get("name"))
         duration = _safe(entry.get("duration") or entry.get("date"))
         company = _safe(entry.get("company"))
         location = _safe(entry.get("location"))
 
-        # Title | Date row
         if title or duration:
-            entry_elements.append(_entry_header_table(title, duration, styles, bold_left=True))
-
-        # Company | Location row
+            header_elements.append(_entry_header_table(title, duration, styles, bold_left=True))
         if company or location:
-            entry_elements.append(_entry_header_table(company, location, styles, bold_left=False, italic_left=True))
+            header_elements.append(_entry_header_table(company, location, styles, bold_left=False, italic_left=True))
 
-        # Bullets
+        # Build bullet elements
+        bullet_elements = []
         for bullet in (entry.get("bullets") or []):
             if isinstance(bullet, str) and bullet.strip():
-                # Clean bullet prefix if present
                 clean = bullet.strip()
-                for prefix in ("- ", "* ", "• ", "– ", "· "):
+                for prefix in ("- ", "* ", "\u2022 ", "\u2013 ", "\u00b7 "):
                     if clean.startswith(prefix):
                         clean = clean[len(prefix):]
                         break
-                entry_elements.append(Paragraph(
+                bullet_elements.append(Paragraph(
                     f"\u2022 {_safe(clean)}",
                     styles["BulletText"]
                 ))
 
-        entry_elements.append(Spacer(1, 4))
+        # KeepTogether: header + first 2 bullets only (prevents huge page gaps)
+        keep_together = header_elements + bullet_elements[:2]
+        if keep_together:
+            elements.append(KeepTogether(keep_together))
 
-        # Keep each entry together on the same page
-        elements.append(KeepTogether(entry_elements))
+        # Remaining bullets flow naturally
+        for b in bullet_elements[2:]:
+            elements.append(b)
+
+        elements.append(Spacer(1, 4))
 
     return elements
 
