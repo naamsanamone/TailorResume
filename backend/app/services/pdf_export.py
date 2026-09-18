@@ -1,169 +1,172 @@
+"""TailorResume — PDF Export using fpdf2 (pure Python, no browser needed)"""
+
 import logging
 from typing import List, Dict, Any
-from playwright.async_api import async_playwright
+from fpdf import FPDF
 
 logger = logging.getLogger(__name__)
 
-HTML_TEMPLATE = """
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Resume</title>
-    <style>
-        @page {{
-            size: letter;
-            margin: 0.5in;
-        }}
-        body {{
-            font-family: 'Calibri', 'Arial', sans-serif;
-            font-size: 11pt;
-            line-height: 1.3;
-            color: #000;
-            margin: 0;
-            padding: 0;
-        }}
-        h1, h2, h3, h4, p, ul {{
-            margin: 0;
-            padding: 0;
-        }}
-        .header {{
-            text-align: center;
-            margin-bottom: 12pt;
-        }}
-        .header h1 {{
-            font-size: 16pt;
-            text-transform: uppercase;
-            font-weight: bold;
-            margin-bottom: 4pt;
-        }}
-        .contact-info {{
-            font-size: 10pt;
-        }}
-        .section {{
-            margin-bottom: 12pt;
-        }}
-        .section-title {{
-            font-size: 12pt;
-            font-weight: bold;
-            text-transform: uppercase;
-            border-bottom: 1pt solid #000;
-            margin-bottom: 6pt;
-            padding-bottom: 2pt;
-        }}
-        .entry {{
-            margin-bottom: 8pt;
-        }}
-        .entry-header {{
-            display: flex;
-            justify-content: space-between;
-            font-weight: bold;
-        }}
-        .entry-subheader {{
-            display: flex;
-            justify-content: space-between;
-            font-style: italic;
-            margin-bottom: 4pt;
-        }}
-        ul {{
-            margin-left: 15pt;
-        }}
-        li {{
-            margin-bottom: 3pt;
-        }}
-        .skills-category {{
-            margin-bottom: 4pt;
-        }}
-    </style>
-</head>
-<body>
-    {content}
-</body>
-</html>
-"""
 
-def render_html(sections: List[Dict[str, Any]]) -> str:
-    content = ""
-    for sec in sections:
-        sec_type = sec.get("type", "").lower()
+class ResumePDF(FPDF):
+    """Custom PDF class for ATS-friendly resume generation."""
+
+    def __init__(self):
+        super().__init__()
+        self.set_auto_page_break(auto=True, margin=15)
+        self.add_page()
+        self.set_margins(12.7, 12.7, 12.7)  # 0.5 inch margins
+        self.set_font("Helvetica", size=10)
+
+    def section_title(self, title: str):
+        """Render a section heading with underline."""
+        self.ln(3)
+        self.set_font("Helvetica", "B", 11)
+        self.cell(0, 6, title.upper(), new_x="LMARGIN", new_y="NEXT")
+        # Draw underline
+        self.set_draw_color(0, 0, 0)
+        self.line(self.l_margin, self.get_y(), self.w - self.r_margin, self.get_y())
+        self.ln(3)
+
+    def entry_header(self, left: str, right: str):
+        """Render entry header with title left, date right."""
+        self.set_font("Helvetica", "B", 10)
+        # Calculate widths
+        page_width = self.w - self.l_margin - self.r_margin
+        self.cell(page_width * 0.7, 5, left, new_x="RIGHT")
+        self.set_font("Helvetica", "", 10)
+        self.cell(page_width * 0.3, 5, right, align="R", new_x="LMARGIN", new_y="NEXT")
+
+    def entry_subheader(self, left: str, right: str):
+        """Render entry subheader (company/location) in italic."""
+        self.set_font("Helvetica", "I", 10)
+        page_width = self.w - self.l_margin - self.r_margin
+        self.cell(page_width * 0.7, 5, left, new_x="RIGHT")
+        self.cell(page_width * 0.3, 5, right, align="R", new_x="LMARGIN", new_y="NEXT")
+        self.ln(1)
+
+    def bullet_point(self, text: str):
+        """Render a bullet point."""
+        self.set_font("Helvetica", "", 10)
+        bullet = chr(8226)  # •
+        indent = 5
+        self.set_x(self.l_margin + indent)
+        page_width = self.w - self.l_margin - self.r_margin - indent - 3
+        self.cell(3, 5, bullet)
+        self.multi_cell(page_width, 5, f" {text}")
+
+    def skill_line(self, category: str, skills: str):
+        """Render a skill category line."""
+        self.set_font("Helvetica", "B", 10)
+        cat_width = self.get_string_width(f"{category}: ") + 2
+        self.cell(cat_width, 5, f"{category}: ")
+        self.set_font("Helvetica", "", 10)
+        remaining = self.w - self.l_margin - self.r_margin - cat_width
+        self.multi_cell(remaining, 5, skills)
+
+
+def _safe_str(val: Any) -> str:
+    """Safely convert value to string, handling None."""
+    if val is None:
+        return ""
+    return str(val)
+
+
+async def generate_pdf(resume_sections: List[Dict[str, Any]], template: str = "jake_classic") -> bytes:
+    """Generate ATS-friendly PDF bytes from resume sections."""
+    pdf = ResumePDF()
+
+    for sec in resume_sections:
+        if not isinstance(sec, dict):
+            continue
+        sec_type = (sec.get("type") or "").lower()
+
         if sec_type == "header":
-            content += f"""
-            <div class="header">
-                <h1>{sec.get('fullName', '')}</h1>
-                <div class="contact-info">
-                    {sec.get('email', '')} | {sec.get('phone', '')} | {sec.get('location', '')}
-                </div>
-            </div>
-            """
+            # Name centered, large
+            name = _safe_str(sec.get("fullName"))
+            if name:
+                pdf.set_font("Helvetica", "B", 16)
+                pdf.cell(0, 8, name, align="C", new_x="LMARGIN", new_y="NEXT")
+
+            # Contact info centered
+            contact_parts = []
+            for field in ("email", "phone", "location", "linkedin", "github", "portfolio"):
+                val = sec.get(field)
+                if val:
+                    contact_parts.append(str(val))
+            if contact_parts:
+                pdf.set_font("Helvetica", "", 9)
+                pdf.cell(0, 5, " | ".join(contact_parts), align="C", new_x="LMARGIN", new_y="NEXT")
+            pdf.ln(2)
+
         elif sec_type == "summary":
-            content += f"""
-            <div class="section">
-                <div class="section-title">{sec.get('name', 'Professional Summary')}</div>
-                <p>{sec.get('text', '')}</p>
-            </div>
-            """
-        elif sec_type in ["experience", "education", "projects"]:
-            content += f"""
-            <div class="section">
-                <div class="section-title">{sec.get('name', sec_type.title())}</div>
-            """
-            for entry in sec.get("entries", []):
-                title = entry.get("title", "") or entry.get("degree", "") or entry.get("name", "")
-                org = entry.get("company", "") or entry.get("institution", "")
-                date = entry.get("date", "")
-                loc = entry.get("location", "")
-                
-                content += f"""
-                <div class="entry">
-                    <div class="entry-header">
-                        <span>{title}</span>
-                        <span>{date}</span>
-                    </div>
-                    <div class="entry-subheader">
-                        <span>{org}</span>
-                        <span>{loc}</span>
-                    </div>
-                """
-                bullets = entry.get("bullets", [])
-                if bullets:
-                    content += "<ul>"
-                    for b in bullets:
-                        content += f"<li>{b}</li>"
-                    content += "</ul>"
-                content += "</div>"
-            content += "</div>"
+            pdf.section_title(sec.get("name") or "Professional Summary")
+            text = _safe_str(sec.get("text"))
+            if text:
+                pdf.set_font("Helvetica", "", 10)
+                pdf.multi_cell(0, 5, text)
+
+        elif sec_type in ("experience", "projects"):
+            pdf.section_title(sec.get("name") or sec_type.title())
+            for entry in (sec.get("entries") or []):
+                if not isinstance(entry, dict):
+                    continue
+                title = _safe_str(entry.get("title") or entry.get("name"))
+                duration = _safe_str(entry.get("duration") or entry.get("date"))
+                company = _safe_str(entry.get("company"))
+                location = _safe_str(entry.get("location"))
+
+                pdf.entry_header(title, duration)
+                if company or location:
+                    pdf.entry_subheader(company, location)
+
+                for bullet in (entry.get("bullets") or []):
+                    if isinstance(bullet, str) and bullet.strip():
+                        pdf.bullet_point(bullet)
+                pdf.ln(1)
+
+        elif sec_type == "education":
+            pdf.section_title(sec.get("name") or "Education")
+            for entry in (sec.get("entries") or []):
+                if not isinstance(entry, dict):
+                    continue
+                degree = _safe_str(entry.get("degree") or entry.get("title"))
+                year = _safe_str(entry.get("year") or entry.get("duration") or entry.get("date"))
+                institution = _safe_str(entry.get("institution") or entry.get("company"))
+                location = _safe_str(entry.get("location"))
+
+                pdf.entry_header(degree, year)
+                if institution or location:
+                    pdf.entry_subheader(institution, location)
+
+                for bullet in (entry.get("bullets") or []):
+                    if isinstance(bullet, str) and bullet.strip():
+                        pdf.bullet_point(bullet)
+
         elif sec_type == "skills":
-            content += f"""
-            <div class="section">
-                <div class="section-title">{sec.get('name', 'Skills')}</div>
-            """
-            cats = sec.get("categories", {})
+            pdf.section_title(sec.get("name") or "Skills")
+            cats = sec.get("categories")
             if isinstance(cats, dict) and cats:
                 for cat_name, cat_skills in cats.items():
-                    skills_str = cat_skills if isinstance(cat_skills, str) else ", ".join(cat_skills)
-                    content += f"""
-                    <div class="skills-category">
-                        <strong>{cat_name}:</strong> {skills_str}
-                    </div>
-                    """
-            elif sec.get("items"):
-                content += f"<p>{', '.join(sec.get('items', []))}</p>"
-            content += "</div>"
-    return HTML_TEMPLATE.format(content=content)
+                    skills_str = cat_skills if isinstance(cat_skills, str) else ", ".join(str(s) for s in cat_skills)
+                    pdf.skill_line(str(cat_name), skills_str)
+            items = sec.get("items")
+            if isinstance(items, list) and items:
+                pdf.set_font("Helvetica", "", 10)
+                pdf.multi_cell(0, 5, ", ".join(str(s) for s in items))
 
+        elif sec_type == "list":
+            pdf.section_title(sec.get("name") or "Additional")
+            for item in (sec.get("items") or []):
+                if isinstance(item, str) and item.strip():
+                    pdf.bullet_point(item)
 
-async def generate_pdf(resume_sections: List[Dict[str, Any]], template: str = 'jake_classic') -> bytes:
-    """Generate PDF bytes using Playwright."""
-    html_content = render_html(resume_sections)
-    
-    try:
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
-            page = await browser.new_page()
-            await page.set_content(html_content)
-            pdf_bytes = await page.pdf(format="Letter", print_background=True, margin={"top": "0.5in", "bottom": "0.5in", "left": "0.5in", "right": "0.5in"})
-            await browser.close()
-            return pdf_bytes
-    except Exception as e:
-        logger.error(f"Error generating PDF: {e}")
-        raise ValueError("Failed to generate PDF")
+        elif sec_type == "custom":
+            name = sec.get("name")
+            if name:
+                pdf.section_title(name)
+            text = _safe_str(sec.get("text"))
+            if text:
+                pdf.set_font("Helvetica", "", 10)
+                pdf.multi_cell(0, 5, text)
+
+    return bytes(pdf.output())
