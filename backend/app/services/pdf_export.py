@@ -251,10 +251,25 @@ def _render_education(sec: dict, styles) -> list:
         institution = _safe(entry.get("institution") or entry.get("company"))
         location = _safe(entry.get("location"))
 
+        # Clean up degree line — remove stray pipes
+        if degree:
+            degree = degree.replace("||", "|").strip(" |")
+
+        # Build institution line with location
+        inst_line = institution
+        if institution and location:
+            inst_line = f"{institution}, {location}"
+        elif location:
+            inst_line = location
+
+        # Clean up institution line — remove double pipes
+        if inst_line:
+            inst_line = inst_line.replace("||", "|").strip(" |")
+
         if degree or year:
             entry_elements.append(_entry_header_table(degree, year, styles, bold_left=True))
-        if institution or location:
-            entry_elements.append(_entry_header_table(institution, location, styles, bold_left=False, italic_left=True))
+        if inst_line:
+            entry_elements.append(_entry_header_table(inst_line, "", styles, bold_left=False, italic_left=True))
 
         for bullet in (entry.get("bullets") or []):
             if isinstance(bullet, str) and bullet.strip():
@@ -306,14 +321,40 @@ def _render_list_section(sec: dict, styles) -> list:
 
 
 def _render_custom(sec: dict, styles) -> list:
-    """Render a custom section."""
+    """Render a custom section. Splits text with embedded bullets into individual items."""
     elements = []
     name = sec.get("name")
     if name:
         elements.extend(_section_heading(name, styles))
-    text = _safe(sec.get("text"))
-    if text:
-        elements.append(Paragraph(text, styles["SummaryText"]))
+
+    text = sec.get("text") or ""
+    items = sec.get("items") or []
+
+    if text and not items:
+        # Try to split text that contains embedded bullet separators
+        import re
+        # Split on bullet chars, newlines, or "• " patterns
+        parts = re.split(r'[\n\r]+|(?:\s*[•\u2022\u2013\u25aa]\s+)', text)
+        parts = [p.strip() for p in parts if p and p.strip() and len(p.strip()) > 3]
+
+        if len(parts) > 1:
+            # Multiple items detected — render as bullets
+            for part in parts:
+                clean = part.strip()
+                for prefix in ("- ", "* ", "• "):
+                    if clean.startswith(prefix):
+                        clean = clean[len(prefix):]
+                        break
+                if clean:
+                    elements.append(Paragraph(f"\u2022 {_safe(clean)}", styles["BulletText"]))
+        elif text.strip():
+            elements.append(Paragraph(_safe(text), styles["SummaryText"]))
+
+    # Also render items if present
+    for item in items:
+        if isinstance(item, str) and item.strip():
+            elements.append(Paragraph(f"\u2022 {_safe(item)}", styles["BulletText"]))
+
     return elements
 
 
