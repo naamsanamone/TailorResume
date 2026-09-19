@@ -163,18 +163,19 @@ export default function TailorPage() {
   };
 
   // Download
-  const handleDownload = async (format: 'pdf' | 'docx' | 'html') => {
+  const handleDownload = async (format: 'pdf' | 'docx' | 'html' | 'tex') => {
     const sections = tailoredResult?.tailored_content || getActiveResume();
     if (!sections) return;
 
     try {
-      const apiCall = format === 'pdf' ? exportAPI.pdf : format === 'docx' ? exportAPI.docx : exportAPI.html;
+      const apiCall = format === 'pdf' ? exportAPI.pdf : format === 'docx' ? exportAPI.docx : format === 'html' ? exportAPI.html : exportAPI.tex;
       const { data } = await apiCall({ sections });
 
       const mimeTypes = {
         pdf: 'application/pdf',
         docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        html: 'text/html;charset=utf-8'
+        html: 'text/html;charset=utf-8',
+        tex: 'application/x-tex;charset=utf-8'
       };
 
       const url = window.URL.createObjectURL(new Blob([data], { type: mimeTypes[format] }));
@@ -449,31 +450,43 @@ export default function TailorPage() {
                       </div>
                     )}
 
-                    <div className="flex gap-3">
-                      <Button
-                        variant="outline"
-                        className="flex-1"
-                        onClick={() => handleDownload('docx')}
-                      >
-                        <Download className="w-4 h-4 mr-2" />
-                        DOCX
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="flex-1"
-                        onClick={() => handleDownload('pdf')}
-                      >
-                        <FileText className="w-4 h-4 mr-2" />
-                        PDF
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="flex-1"
-                        onClick={() => handleDownload('html')}
-                      >
-                        <FileCode className="w-4 h-4 mr-2" />
-                        HTML (Jake's)
-                      </Button>
+                    <div className="space-y-2">
+                      <div className="flex gap-3">
+                        <Button
+                          className="flex-1 bg-black text-white hover:bg-gray-800"
+                          onClick={() => handleDownload('pdf')}
+                        >
+                          <FileText className="w-4 h-4 mr-2" />
+                          Download PDF (Jake's LaTeX)
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="flex-1"
+                          onClick={() => handleDownload('docx')}
+                        >
+                          <Download className="w-4 h-4 mr-2" />
+                          DOCX
+                        </Button>
+                      </div>
+                      <div className="flex gap-3">
+                        <Button
+                          variant="outline"
+                          className="flex-1 text-xs"
+                          onClick={() => handleDownload('tex')}
+                          title="Open directly in Overleaf or compile with pdflatex"
+                        >
+                          <FileCode className="w-3.5 h-3.5 mr-1.5" />
+                          LaTeX (.tex for Overleaf)
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="flex-1 text-xs"
+                          onClick={() => handleDownload('html')}
+                        >
+                          <FileCode className="w-3.5 h-3.5 mr-1.5" />
+                          HTML (Web View)
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -484,34 +497,47 @@ export default function TailorPage() {
                     <p className="text-xs text-gray-500 mb-2">
                       Or download current resume without tailoring:
                     </p>
-                    <div className="flex gap-3">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="flex-1 text-xs"
-                        onClick={() => handleDownload('docx')}
-                      >
-                        <Download className="w-3 h-3 mr-1" />
-                        DOCX
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="flex-1 text-xs"
-                        onClick={() => handleDownload('pdf')}
-                      >
-                        <FileText className="w-3 h-3 mr-1" />
-                        PDF
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="flex-1 text-xs"
-                        onClick={() => handleDownload('html')}
-                      >
-                        <FileCode className="w-3 h-3 mr-1" />
-                        HTML
-                      </Button>
+                    <div className="space-y-2">
+                      <div className="flex gap-3">
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="flex-1 text-xs bg-black text-white hover:bg-gray-800"
+                          onClick={() => handleDownload('pdf')}
+                        >
+                          <FileText className="w-3.5 h-3.5 mr-1" />
+                          PDF (Jake's LaTeX)
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 text-xs"
+                          onClick={() => handleDownload('docx')}
+                        >
+                          <Download className="w-3.5 h-3.5 mr-1" />
+                          DOCX
+                        </Button>
+                      </div>
+                      <div className="flex gap-3">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="flex-1 text-xs"
+                          onClick={() => handleDownload('tex')}
+                        >
+                          <FileCode className="w-3 h-3 mr-1" />
+                          LaTeX (.tex)
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="flex-1 text-xs"
+                          onClick={() => handleDownload('html')}
+                        >
+                          <FileCode className="w-3 h-3 mr-1" />
+                          HTML
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 )}
