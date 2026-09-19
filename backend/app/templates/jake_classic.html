@@ -201,8 +201,8 @@ body {
             {% endfor %}
         {% endif %}
     {% endif %}
-    {% if section.items %}
-    <div class="skill-line">{{ section.items | join(", ") }}</div>
+    {% if section.list_items %}
+    <div class="skill-line">{{ section.list_items | join(", ") }}</div>
     {% endif %}
 </div>
 
@@ -297,9 +297,9 @@ body {
 <!-- LIST SECTION (Certifications, Awards, etc.) -->
 <div class="section">
     <div class="section-title">{{ section.name or "Additional" }}</div>
-    {% if section.items %}
+    {% if section.list_items %}
     <ul class="list-items">
-        {% for item in section.items %}
+        {% for item in section.list_items %}
         {% if item and item.strip() %}
         <li>{{ item.strip() }}</li>
         {% endif %}
@@ -328,9 +328,9 @@ body {
         <div class="summary-text">{{ section.text }}</div>
         {% endif %}
     {% endif %}
-    {% if section.items %}
+    {% if section.list_items %}
     <ul class="list-items">
-        {% for item in section.items %}
+        {% for item in section.list_items %}
         {% if item and item.strip() %}
         <li>{{ item.strip() }}</li>
         {% endif %}

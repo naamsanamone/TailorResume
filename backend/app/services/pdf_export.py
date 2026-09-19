@@ -66,9 +66,9 @@ def _prepare_sections(resume_sections: List[Dict[str, Any]]) -> List[Dict[str, A
                     clean_entries.append(e)
             section["entries"] = clean_entries
 
-        # Clean items
-        if section.get("items"):
-            section["items"] = [i for i in section["items"] if isinstance(i, str) and i.strip()]
+        # Clean items — rename to list_items to avoid Jinja2 dict.items() conflict
+        raw_items = section.pop("items", []) or []
+        section["list_items"] = [i for i in raw_items if isinstance(i, str) and i.strip()]
 
         cleaned.append(section)
     return cleaned
