@@ -2,11 +2,26 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ header_name or "Resume" }}</title>
 <style>
-/* Jake's Resume - ATS-Friendly Template */
+/* Jake's Resume ATS Template */
 @page {
     size: letter;
     margin: 0.5in;
+}
+
+@media print {
+    html, body {
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        background: #fff;
+    }
+    a {
+        color: #111 !important;
+        text-decoration: none !important;
+    }
 }
 
 * {
@@ -16,10 +31,14 @@
 }
 
 body {
-    font-family: Helvetica, Arial, sans-serif;
-    font-size: 10pt;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    color: #111;
+    background: #fff;
+    font-size: 9.5pt;
     line-height: 1.35;
-    color: #000;
+    max-width: 8.5in;
+    margin: 0 auto;
+    padding: 0.25in;
 }
 
 /* Header */
@@ -29,15 +48,18 @@ body {
 }
 
 .header h1 {
-    font-size: 16pt;
+    font-size: 18pt;
     font-weight: bold;
+    text-transform: uppercase;
     letter-spacing: 0.5pt;
     margin-bottom: 2pt;
+    color: #000;
 }
 
 .header .headline {
     font-size: 10pt;
-    color: #333;
+    font-weight: 600;
+    color: #2b2b2b;
     margin-bottom: 2pt;
 }
 
@@ -47,108 +69,83 @@ body {
 }
 
 .header .contact a {
-    color: #333;
-    text-decoration: none;
+    color: #111;
+    text-decoration: underline;
 }
 
-/* Section */
-.section {
-    margin-top: 8pt;
-    margin-bottom: 4pt;
-}
-
-.section-title {
+/* Section Headings */
+h2.section-title {
     font-size: 11pt;
     font-weight: bold;
     text-transform: uppercase;
     letter-spacing: 0.5pt;
-    border-bottom: 1pt solid #000;
-    padding-bottom: 2pt;
-    margin-bottom: 4pt;
+    border-bottom: 1pt solid #111;
+    margin-top: 8pt;
+    margin-bottom: 3pt;
+    padding-bottom: 1pt;
+    color: #000;
 }
 
 /* Summary */
 .summary-text {
-    font-size: 10pt;
+    font-size: 9.5pt;
     text-align: justify;
+    margin-top: 2pt;
     margin-bottom: 4pt;
+    line-height: 1.35;
 }
 
-/* Entry (Experience, Projects, Education) */
-.entry {
-    margin-bottom: 6pt;
-    page-break-inside: avoid;
+/* Tables for Left/Right Alignment (Jake's Resume Style) */
+table.entry-table {
+    width: 100%;
+    margin-top: 2pt;
+    margin-bottom: 1pt;
 }
 
-.entry-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
+table.entry-table td {
+    padding: 0;
+    border: none;
+    font-size: 9.5pt;
+    vertical-align: top;
 }
 
-.entry-title {
-    font-weight: bold;
-    font-size: 10pt;
+td.left-cell {
+    text-align: left;
 }
 
-.entry-date {
-    font-size: 10pt;
+td.right-cell {
     text-align: right;
     white-space: nowrap;
-    flex-shrink: 0;
-    margin-left: 10pt;
-}
-
-.entry-subheader {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-}
-
-.entry-company {
-    font-style: italic;
-    font-size: 10pt;
-}
-
-.entry-location {
-    font-style: italic;
-    font-size: 10pt;
-    text-align: right;
-    white-space: nowrap;
-    flex-shrink: 0;
-    margin-left: 10pt;
 }
 
 /* Bullets */
-.bullets {
-    margin-top: 2pt;
-    padding-left: 15pt;
+ul.bullets {
+    margin-top: 1pt;
+    margin-bottom: 4pt;
+    padding-left: 16pt;
 }
 
-.bullets li {
-    font-size: 10pt;
-    margin-bottom: 1pt;
+ul.bullets li {
+    font-size: 9.5pt;
+    margin-bottom: 1.5pt;
     text-align: justify;
+    line-height: 1.35;
 }
 
 /* Skills */
-.skill-line {
-    font-size: 10pt;
+.skills-block {
+    font-size: 9.5pt;
+    line-height: 1.4;
+    margin-top: 2pt;
+    margin-bottom: 4pt;
+}
+
+.skills-block p {
     margin-bottom: 2pt;
 }
 
-.skill-line .cat-name {
+.skills-block strong {
     font-weight: bold;
-}
-
-/* List items (certifications, etc.) */
-.list-items {
-    padding-left: 15pt;
-}
-
-.list-items li {
-    font-size: 10pt;
-    margin-bottom: 1pt;
 }
 </style>
 </head>
@@ -164,180 +161,177 @@ body {
     {% endif %}
     {% set contact_parts = [] %}
     {% if section.phone %}{% set _ = contact_parts.append(section.phone) %}{% endif %}
-    {% if section.email %}{% set _ = contact_parts.append(section.email) %}{% endif %}
-    {% if section.linkedin %}{% set _ = contact_parts.append(section.linkedin) %}{% endif %}
-    {% if section.github %}{% set _ = contact_parts.append(section.github) %}{% endif %}
-    {% if section.portfolio %}{% set _ = contact_parts.append(section.portfolio) %}{% endif %}
+    {% if section.email %}
+        {% set email_link = '<a href="mailto:' ~ section.email ~ '">' ~ section.email ~ '</a>' %}
+        {% set _ = contact_parts.append(email_link) %}
+    {% endif %}
+    {% if section.linkedin %}
+        {% set li_url = section.linkedin if section.linkedin.startswith('http') else 'https://' ~ section.linkedin %}
+        {% set li_link = '<a href="' ~ li_url ~ '">' ~ section.linkedin ~ '</a>' %}
+        {% set _ = contact_parts.append(li_link) %}
+    {% endif %}
+    {% if section.github %}
+        {% set gh_url = section.github if section.github.startswith('http') else 'https://' ~ section.github %}
+        {% set gh_link = '<a href="' ~ gh_url ~ '">' ~ section.github ~ '</a>' %}
+        {% set _ = contact_parts.append(gh_link) %}
+    {% endif %}
+    {% if section.portfolio %}
+        {% set pf_url = section.portfolio if section.portfolio.startswith('http') else 'https://' ~ section.portfolio %}
+        {% set pf_link = '<a href="' ~ pf_url ~ '">' ~ section.portfolio ~ '</a>' %}
+        {% set _ = contact_parts.append(pf_link) %}
+    {% endif %}
     {% if section.location %}{% set _ = contact_parts.append(section.location) %}{% endif %}
     {% if contact_parts %}
-    <div class="contact">{{ contact_parts | join(" | ") }}</div>
+    <div class="contact">{{ contact_parts | join(" | ") | safe }}</div>
     {% endif %}
 </div>
 
 {% elif section.type == "summary" %}
 <!-- PROFESSIONAL SUMMARY -->
-<div class="section">
-    <div class="section-title">{{ section.name or "Professional Summary" }}</div>
-    {% if section.text %}
-    <div class="summary-text">{{ section.text }}</div>
-    {% endif %}
-</div>
+<h2 class="section-title">{{ section.name or "Professional Summary" }}</h2>
+{% if section.text %}
+<div class="summary-text">{{ section.text }}</div>
+{% endif %}
 
 {% elif section.type == "skills" %}
 <!-- TECHNICAL SKILLS -->
-<div class="section">
-    <div class="section-title">{{ section.name or "Technical Skills" }}</div>
-    {% if section.categories %}
-        {% if section.categories is mapping %}
-            {% for cat_name, cat_skills in section.categories.items() %}
-            <div class="skill-line">
-                <span class="cat-name">{{ cat_name }}:</span>
-                {% if cat_skills is string %}
-                    {{ cat_skills }}
-                {% else %}
-                    {{ cat_skills | join(", ") }}
-                {% endif %}
-            </div>
-            {% endfor %}
-        {% endif %}
+<h2 class="section-title">{{ section.name or "Technical Skills" }}</h2>
+<div class="skills-block">
+    {% if section.categories and section.categories is mapping %}
+        <p>
+        {% for cat_name, cat_skills in section.categories.items() %}
+            <strong>{{ cat_name }}:</strong>
+            {% if cat_skills is string %}
+                {{ cat_skills }}
+            {% else %}
+                {{ cat_skills | join(", ") }}
+            {% endif %}
+            <br/>
+        {% endfor %}
+        </p>
     {% endif %}
     {% if section.list_items %}
-    <div class="skill-line">{{ section.list_items | join(", ") }}</div>
+        <p>{{ section.list_items | join(", ") }}</p>
     {% endif %}
 </div>
 
 {% elif section.type == "experience" %}
 <!-- PROFESSIONAL EXPERIENCE -->
-<div class="section">
-    <div class="section-title">{{ section.name or "Professional Experience" }}</div>
-    {% for entry in section.entries or [] %}
-    <div class="entry">
-        <div class="entry-header">
-            <span class="entry-title">{{ entry.title or entry.name or "" }}</span>
-            <span class="entry-date">{{ entry.duration or entry.date or "" }}</span>
-        </div>
+<h2 class="section-title">{{ section.name or "Professional Experience" }}</h2>
+{% for entry in section.entries or [] %}
+    <table class="entry-table">
+        <tr>
+            <td class="left-cell"><strong>{{ entry.title or entry.name or "" }}</strong></td>
+            <td class="right-cell">{{ entry.duration or entry.date or "" }}</td>
+        </tr>
         {% if entry.company or entry.location %}
-        <div class="entry-subheader">
-            <span class="entry-company">{{ entry.company or "" }}</span>
-            <span class="entry-location">{{ entry.location or "" }}</span>
-        </div>
+        <tr>
+            <td class="left-cell"><em>{{ entry.company or "" }}</em></td>
+            <td class="right-cell"><em>{{ entry.location or "" }}</em></td>
+        </tr>
         {% endif %}
-        {% if entry.bullets %}
-        <ul class="bullets">
-            {% for bullet in entry.bullets %}
-            {% if bullet and bullet.strip() %}
-            <li>{{ bullet.strip().lstrip("- *•–·").strip() }}</li>
-            {% endif %}
-            {% endfor %}
-        </ul>
+    </table>
+    {% if entry.bullets %}
+    <ul class="bullets">
+        {% for bullet in entry.bullets %}
+        {% if bullet and bullet.strip() %}
+        <li>{{ bullet.strip().lstrip("- *•–·").strip() }}</li>
         {% endif %}
-    </div>
-    {% endfor %}
-</div>
+        {% endfor %}
+    </ul>
+    {% endif %}
+{% endfor %}
 
 {% elif section.type == "projects" %}
 <!-- PROJECTS -->
-<div class="section">
-    <div class="section-title">{{ section.name or "Projects" }}</div>
-    {% for entry in section.entries or [] %}
-    <div class="entry">
-        <div class="entry-header">
-            <span class="entry-title">{{ entry.title or entry.name or "" }}</span>
-            <span class="entry-date">{{ entry.duration or entry.date or "" }}</span>
-        </div>
-        {% if entry.company %}
-        <div class="entry-subheader">
-            <span class="entry-company">{{ entry.company or "" }}</span>
-            <span class="entry-location">{{ entry.location or "" }}</span>
-        </div>
+<h2 class="section-title">{{ section.name or "Projects" }}</h2>
+{% for entry in section.entries or [] %}
+    <table class="entry-table">
+        <tr>
+            <td class="left-cell">
+                <strong>{{ entry.title or entry.name or "" }}</strong>
+                {% if entry.company %} | <em>{{ entry.company }}</em>{% endif %}
+            </td>
+            <td class="right-cell">{{ entry.duration or entry.date or "" }}</td>
+        </tr>
+    </table>
+    {% if entry.bullets %}
+    <ul class="bullets">
+        {% for bullet in entry.bullets %}
+        {% if bullet and bullet.strip() %}
+        <li>{{ bullet.strip().lstrip("- *•–·").strip() }}</li>
         {% endif %}
-        {% if entry.bullets %}
-        <ul class="bullets">
-            {% for bullet in entry.bullets %}
-            {% if bullet and bullet.strip() %}
-            <li>{{ bullet.strip().lstrip("- *•–·").strip() }}</li>
-            {% endif %}
-            {% endfor %}
-        </ul>
-        {% endif %}
-    </div>
-    {% endfor %}
-</div>
+        {% endfor %}
+    </ul>
+    {% endif %}
+{% endfor %}
 
 {% elif section.type == "education" %}
 <!-- EDUCATION -->
-<div class="section">
-    <div class="section-title">{{ section.name or "Education" }}</div>
-    {% for entry in section.entries or [] %}
-    <div class="entry">
-        <div class="entry-header">
-            <span class="entry-title">{{ entry.degree or entry.title or "" }}</span>
-            <span class="entry-date">{{ entry.year or entry.duration or entry.date or "" }}</span>
-        </div>
-        {% if entry.institution or entry.company or entry.location %}
-        <div class="entry-subheader">
-            <span class="entry-company">{{ entry.institution or entry.company or "" }}</span>
-            <span class="entry-location">{{ entry.location or "" }}</span>
-        </div>
+<h2 class="section-title">{{ section.name or "Education" }}</h2>
+{% for entry in section.entries or [] %}
+    <table class="entry-table">
+        <tr>
+            <td class="left-cell"><strong>{{ entry.institution or entry.company or "" }}</strong></td>
+            <td class="right-cell">{{ entry.year or entry.duration or entry.date or "" }}</td>
+        </tr>
+        {% if entry.degree or entry.title or entry.location %}
+        <tr>
+            <td class="left-cell"><em>{{ entry.degree or entry.title or "" }}</em></td>
+            <td class="right-cell"><em>{{ entry.location or "" }}</em></td>
+        </tr>
         {% endif %}
-        {% if entry.bullets %}
-        <ul class="bullets">
-            {% for bullet in entry.bullets %}
-            {% if bullet and bullet.strip() %}
-            <li>{{ bullet.strip() }}</li>
-            {% endif %}
-            {% endfor %}
-        </ul>
+    </table>
+    {% if entry.bullets %}
+    <ul class="bullets">
+        {% for bullet in entry.bullets %}
+        {% if bullet and bullet.strip() %}
+        <li>{{ bullet.strip() }}</li>
         {% endif %}
-    </div>
-    {% endfor %}
-</div>
+        {% endfor %}
+    </ul>
+    {% endif %}
+{% endfor %}
 
 {% elif section.type == "list" %}
-<!-- LIST SECTION (Certifications, Awards, etc.) -->
-<div class="section">
-    <div class="section-title">{{ section.name or "Additional" }}</div>
-    {% if section.list_items %}
-    <ul class="list-items">
-        {% for item in section.list_items %}
-        {% if item and item.strip() %}
-        <li>{{ item.strip() }}</li>
-        {% endif %}
-        {% endfor %}
-    </ul>
+<!-- LIST (Certifications, Awards, etc.) -->
+<h2 class="section-title">{{ section.name or "Certifications" }}</h2>
+{% if section.list_items %}
+<ul class="bullets">
+    {% for item in section.list_items %}
+    {% if item and item.strip() %}
+    <li>{{ item.strip().lstrip("- *•–·").strip() }}</li>
     {% endif %}
-</div>
+    {% endfor %}
+</ul>
+{% endif %}
 
 {% elif section.type == "custom" %}
-<!-- CUSTOM SECTION -->
-<div class="section">
-    {% if section.name %}
-    <div class="section-title">{{ section.name }}</div>
-    {% endif %}
-    {% if section.text %}
-        {% set parts = section.text.split('\n') %}
-        {% if parts | length > 1 %}
-        <ul class="list-items">
-            {% for part in parts %}
-            {% if part.strip() and part.strip() | length > 3 %}
-            <li>{{ part.strip().lstrip("- *•–·").strip() }}</li>
-            {% endif %}
-            {% endfor %}
-        </ul>
-        {% else %}
-        <div class="summary-text">{{ section.text }}</div>
-        {% endif %}
-    {% endif %}
-    {% if section.list_items %}
-    <ul class="list-items">
-        {% for item in section.list_items %}
-        {% if item and item.strip() %}
-        <li>{{ item.strip() }}</li>
+<!-- CUSTOM / ACHIEVEMENTS -->
+<h2 class="section-title">{{ section.name or "Additional" }}</h2>
+{% if section.text %}
+    {% set parts = section.text.split('\n') %}
+    {% if parts | length > 1 %}
+    <ul class="bullets">
+        {% for part in parts %}
+        {% if part.strip() and part.strip() | length > 3 %}
+        <li>{{ part.strip().lstrip("- *•–·").strip() }}</li>
         {% endif %}
         {% endfor %}
     </ul>
+    {% else %}
+    <div class="summary-text">{{ section.text }}</div>
     {% endif %}
-</div>
+{% endif %}
+{% if section.list_items %}
+<ul class="bullets">
+    {% for item in section.list_items %}
+    {% if item and item.strip() %}
+    <li>{{ item.strip().lstrip("- *•–·").strip() }}</li>
+    {% endif %}
+    {% endfor %}
+</ul>
+{% endif %}
 
 {% endif %}
 {% endfor %}

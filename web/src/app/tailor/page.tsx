@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, Download, FileText, Wand2, Upload, Check, X, Loader2 } from 'lucide-react';
+import { ArrowLeft, Download, FileText, Wand2, Upload, Check, X, Loader2, FileCode } from 'lucide-react';
 import Link from 'next/link';
 
 interface Resume {
@@ -163,15 +163,21 @@ export default function TailorPage() {
   };
 
   // Download
-  const handleDownload = async (format: 'pdf' | 'docx') => {
+  const handleDownload = async (format: 'pdf' | 'docx' | 'html') => {
     const sections = tailoredResult?.tailored_content || getActiveResume();
     if (!sections) return;
 
     try {
-      const apiCall = format === 'pdf' ? exportAPI.pdf : exportAPI.docx;
+      const apiCall = format === 'pdf' ? exportAPI.pdf : format === 'docx' ? exportAPI.docx : exportAPI.html;
       const { data } = await apiCall({ sections });
 
-      const url = window.URL.createObjectURL(new Blob([data]));
+      const mimeTypes = {
+        pdf: 'application/pdf',
+        docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        html: 'text/html;charset=utf-8'
+      };
+
+      const url = window.URL.createObjectURL(new Blob([data], { type: mimeTypes[format] }));
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', `tailored_resume.${format}`);
@@ -443,14 +449,14 @@ export default function TailorPage() {
                       </div>
                     )}
 
-                    <div className="flex gap-4">
+                    <div className="flex gap-3">
                       <Button
                         variant="outline"
                         className="flex-1"
                         onClick={() => handleDownload('docx')}
                       >
                         <Download className="w-4 h-4 mr-2" />
-                        Download DOCX
+                        DOCX
                       </Button>
                       <Button
                         variant="outline"
@@ -458,7 +464,15 @@ export default function TailorPage() {
                         onClick={() => handleDownload('pdf')}
                       >
                         <FileText className="w-4 h-4 mr-2" />
-                        Download PDF
+                        PDF
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => handleDownload('html')}
+                      >
+                        <FileCode className="w-4 h-4 mr-2" />
+                        HTML (Jake's)
                       </Button>
                     </div>
                   </div>
@@ -470,7 +484,7 @@ export default function TailorPage() {
                     <p className="text-xs text-gray-500 mb-2">
                       Or download current resume without tailoring:
                     </p>
-                    <div className="flex gap-4">
+                    <div className="flex gap-3">
                       <Button
                         variant="ghost"
                         size="sm"
@@ -488,6 +502,15 @@ export default function TailorPage() {
                       >
                         <FileText className="w-3 h-3 mr-1" />
                         PDF
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="flex-1 text-xs"
+                        onClick={() => handleDownload('html')}
+                      >
+                        <FileCode className="w-3 h-3 mr-1" />
+                        HTML
                       </Button>
                     </div>
                   </div>
