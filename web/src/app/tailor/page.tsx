@@ -168,11 +168,18 @@ export default function TailorPage() {
     if (!sections) return;
 
     try {
-      const apiCall = format === 'pdf' ? exportAPI.pdf : format === 'docx' ? exportAPI.docx : format === 'html' ? exportAPI.html : exportAPI.tex;
+      // PDF: render client-side using OpenResume's @react-pdf/renderer (no backend needed!)
+      if (format === 'pdf') {
+        const { downloadPDF } = await import('@/components/resume-pdf');
+        await downloadPDF(sections);
+        return;
+      }
+
+      // Other formats: use backend API
+      const apiCall = format === 'docx' ? exportAPI.docx : format === 'html' ? exportAPI.html : exportAPI.tex;
       const { data } = await apiCall({ sections });
 
-      const mimeTypes = {
-        pdf: 'application/pdf',
+      const mimeTypes: Record<string, string> = {
         docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         html: 'text/html;charset=utf-8',
         tex: 'application/x-tex;charset=utf-8'
