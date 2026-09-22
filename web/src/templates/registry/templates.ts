@@ -283,4 +283,106 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateRegistryEntry> = {
     ],
     loadComponent: () => import('@/templates/straightforward/StraightforwardTemplate'),
   },
+
+  'swiss-single': {
+    id: 'swiss-single',
+    name: 'Swiss Single',
+    thumbnail: '/templates/plain.png',
+    sectionLayout: {
+      regionKeys: [REGION_IDS.main],
+      defaults: {
+        [REGION_IDS.main]: [
+          SECTION_IDS.summary,
+          SECTION_IDS.work,
+          SECTION_IDS.education,
+          SECTION_IDS.skills,
+          SECTION_IDS.awards,
+        ],
+      },
+    },
+    sectionRules: [
+      { sectionId: SECTION_IDS.summary, when: has.basicsSummary },
+      { sectionId: SECTION_IDS.work, when: has.work },
+      { sectionId: SECTION_IDS.education, when: has.education },
+      { sectionId: SECTION_IDS.skills, when: has.skillsLangFrameworks },
+      { sectionId: SECTION_IDS.awards, when: has.awards },
+    ],
+    loadComponent: () => import('@/templates/swiss-single/SwissSingleTemplate'),
+  },
+
+  latex: {
+    id: 'latex',
+    name: 'LaTeX',
+    thumbnail: '/templates/plain.png',
+    sectionLayout: {
+      regionKeys: [REGION_IDS.main],
+      defaults: {
+        [REGION_IDS.main]: [
+          SECTION_IDS.summary,
+          SECTION_IDS.work,
+          SECTION_IDS.education,
+          SECTION_IDS.skills,
+          SECTION_IDS.awards,
+        ],
+      },
+    },
+    sectionRules: [
+      { sectionId: SECTION_IDS.summary, when: has.basicsSummary },
+      { sectionId: SECTION_IDS.work, when: has.work },
+      { sectionId: SECTION_IDS.education, when: has.education },
+      { sectionId: SECTION_IDS.skills, when: has.skillsLangFrameworks },
+      { sectionId: SECTION_IDS.awards, when: has.awards },
+    ],
+    loadComponent: () => import('@/templates/latex/LatexTemplate'),
+  },
+
+  resumave: {
+    id: 'resumave',
+    name: 'Resumave',
+    thumbnail: '/templates/plain.png',
+    sectionLayout: {
+      regionKeys: [REGION_IDS.main],
+      defaults: {
+        [REGION_IDS.main]: [
+          SECTION_IDS.summary,
+          SECTION_IDS.work,
+          SECTION_IDS.education,
+          SECTION_IDS.skills,
+          SECTION_IDS.awards,
+        ],
+      },
+    },
+    sectionRules: [
+      { sectionId: SECTION_IDS.summary, when: has.basicsSummary },
+      { sectionId: SECTION_IDS.work, when: has.work },
+      { sectionId: SECTION_IDS.education, when: has.education },
+      { sectionId: SECTION_IDS.skills, when: has.skillsLangFrameworks },
+      { sectionId: SECTION_IDS.awards, when: has.awards },
+    ],
+    loadComponent: () => import('@/templates/resumave/ResumaveTemplate'),
+  },
+
+  clean: {
+    id: 'clean',
+    name: 'Clean',
+    thumbnail: '/templates/plain.png',
+    sectionLayout: {
+      regionKeys: [REGION_IDS.main],
+      defaults: {
+        [REGION_IDS.main]: [
+          SECTION_IDS.summary,
+          SECTION_IDS.work,
+          SECTION_IDS.education,
+          SECTION_IDS.skills,
+        ],
+      },
+    },
+    sectionRules: [
+      { sectionId: SECTION_IDS.summary, when: has.basicsSummary },
+      { sectionId: SECTION_IDS.work, when: has.work },
+      { sectionId: SECTION_IDS.education, when: has.education },
+      { sectionId: SECTION_IDS.skills, when: has.skillsLangFrameworks },
+    ],
+    loadComponent: () => import('@/templates/clean/CleanTemplate'),
+  },
 };
