@@ -60,6 +60,7 @@ class TailorSummaryRequest(BaseModel):
 class TailorSummaryResponse(BaseModel):
     tailored_summary: str
     keywords_incorporated: List[str] = []
+    before_score: float = 0
     ats_score: float = 0
 
 class TailorBulletsRequest(BaseModel):
@@ -70,6 +71,7 @@ class TailorBulletsRequest(BaseModel):
 class TailorBulletsResponse(BaseModel):
     tailored_bullets: List[str] = []
     keywords_incorporated: List[str] = []
+    before_score: float = 0
     ats_score: float = 0
 
 class TailorSkillsRequest(BaseModel):
@@ -87,6 +89,11 @@ async def tailor_summary_endpoint(request: TailorSummaryRequest):
     try:
         sections = [s.model_dump() for s in request.resume_content]
         jd_analysis = await analyze_job_description(request.job_description)
+
+        # Before score
+        before_score_data = await calculate_ats_score(sections, request.job_description, jd_analysis)
+        before_score = before_score_data.get("ats_score", 0)
+
         match_results = await match_resume_to_jd(sections, jd_analysis)
         missing_skills = [s for s in match_results.get("missing_skills", []) if isinstance(s, str)]
 
@@ -126,6 +133,7 @@ async def tailor_summary_endpoint(request: TailorSummaryRequest):
         return TailorSummaryResponse(
             tailored_summary=tailored,
             keywords_incorporated=[str(k) for k in kw] if isinstance(kw, list) else [],
+            before_score=before_score,
             ats_score=score_data.get("ats_score", 0),
         )
     except Exception as e:
@@ -139,6 +147,10 @@ async def tailor_bullets_endpoint(request: TailorBulletsRequest):
     try:
         sections = [s.model_dump() for s in request.resume_content]
         jd_analysis = await analyze_job_description(request.job_description)
+        # Before score
+        before_score_data = await calculate_ats_score(sections, request.job_description, jd_analysis)
+        before_score = before_score_data.get("ats_score", 0)
+
         match_results = await match_resume_to_jd(sections, jd_analysis)
         missing_skills = [s for s in match_results.get("missing_skills", []) if isinstance(s, str)]
 
@@ -188,6 +200,7 @@ async def tailor_bullets_endpoint(request: TailorBulletsRequest):
         return TailorBulletsResponse(
             tailored_bullets=tailored if isinstance(tailored, list) else original_bullets,
             keywords_incorporated=[str(k) for k in kw] if isinstance(kw, list) else [],
+            before_score=before_score,
             ats_score=score_data.get("ats_score", 0),
         )
     except HTTPException:

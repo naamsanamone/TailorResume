@@ -7,7 +7,7 @@ import logging
 
 from app.config import settings
 from app.database import create_tables
-from app.api import auth, resumes, parse, tailor, score, export
+from app.api import auth, resumes, parse, tailor, score, export, analyze
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +52,7 @@ app.include_router(parse.router, prefix="/api/parse", tags=["Parsing"])
 app.include_router(tailor.router, prefix="/api/tailor", tags=["Tailoring"])
 app.include_router(score.router, prefix="/api/score", tags=["Scoring"])
 app.include_router(export.router, prefix="/api/export", tags=["Export"])
+app.include_router(analyze.router, prefix="/api/analyze", tags=["Analysis"])
 
 
 @app.get("/api/health")

@@ -5,9 +5,11 @@
 
 const API_BASE = 'http://localhost:8000/api';
 
+/* ─────────── Shared Types ─────────── */
+
 interface ResumeSection {
   name: string;
-  type: 'header' | 'summary' | 'experience' | 'education' | 'projects' | 'skills' | 'list' | 'custom';
+  type: string;
   fullName?: string;
   email?: string;
   phone?: string;
@@ -29,6 +31,50 @@ interface ScoreBreakdown {
   completeness_score: number;
 }
 
+interface SkillMatch {
+  skill: string;
+  match_type: string;
+  confidence: number;
+}
+
+/* ─────────── Analyze ─────────── */
+
+export interface SectionScore {
+  score: number;
+  matched: string[];
+  missing: string[];
+  recommendation: string;
+}
+
+export interface ExperienceEntryScore {
+  title: string;
+  company: string;
+  score: number;
+  matched: string[];
+  missing: string[];
+}
+
+export interface ExperienceSectionScore extends SectionScore {
+  entries: ExperienceEntryScore[];
+}
+
+export interface AnalyzeResponse {
+  overall_score: number;
+  breakdown: ScoreBreakdown;
+  section_scores: {
+    summary?: SectionScore;
+    experience?: ExperienceSectionScore;
+    skills?: SectionScore;
+  };
+  matched_skills: SkillMatch[];
+  partial_matches: SkillMatch[];
+  missing_skills: string[];
+  jd_analysis: Record<string, any>;
+  recommendations: string[];
+}
+
+/* ─────────── Tailor ─────────── */
+
 export interface TailorResponse {
   tailored_content: ResumeSection[];
   ats_score: number;
@@ -40,12 +86,14 @@ export interface TailorResponse {
 export interface TailorSummaryResponse {
   tailored_summary: string;
   keywords_incorporated: string[];
+  before_score: number;
   ats_score: number;
 }
 
 export interface TailorBulletsResponse {
   tailored_bullets: string[];
   keywords_incorporated: string[];
+  before_score: number;
   ats_score: number;
 }
 
@@ -54,14 +102,18 @@ export interface TailorSkillsResponse {
   keywords_incorporated: string[];
 }
 
+/* ─────────── Score ─────────── */
+
 export interface ScoreResponse {
   ats_score: number;
   breakdown: ScoreBreakdown;
-  matched_skills: { skill: string; match_type: string; confidence: number }[];
-  partial_matches: { skill: string; match_type: string; confidence: number }[];
-  missing_skills: { skill: string; match_type: string; confidence: number }[];
+  matched_skills: SkillMatch[];
+  partial_matches: SkillMatch[];
+  missing_skills: string[];
   recommendations: string[];
 }
+
+/* ─────────── API Call Helper ─────────── */
 
 async function apiCall<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
@@ -74,6 +126,19 @@ async function apiCall<T>(path: string, body: unknown): Promise<T> {
     throw new Error(err.detail || `API error ${res.status}`);
   }
   return res.json();
+}
+
+/* ─────────── Endpoints ─────────── */
+
+/** Analyze resume against JD — returns scores without modifying */
+export async function analyzeResume(
+  sections: ResumeSection[],
+  jobDescription: string
+): Promise<AnalyzeResponse> {
+  return apiCall<AnalyzeResponse>('/analyze/', {
+    resume_content: sections,
+    job_description: jobDescription,
+  });
 }
 
 /** Full resume tailoring — rewrites summary, bullets, skills */

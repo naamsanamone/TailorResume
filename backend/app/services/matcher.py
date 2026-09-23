@@ -1,7 +1,7 @@
 import re
 import logging
 from typing import List, Dict, Any
-from app.services.embeddings import compute_similarity
+from app.services.embeddings import compute_similarity, generate_embeddings, generate_embedding, cosine_similarity
 
 logger = logging.getLogger(__name__)
 
@@ -131,6 +131,11 @@ async def match_resume_to_jd(resume_sections: List[Dict[str, Any]], jd_analysis:
     partial_matches = []
     missing_skills = []
     
+    sentences = [s.strip() for s in resume_text.split('.') if len(s.strip()) > 10][:30]
+    sentence_embeddings = generate_embeddings(sentences) if sentences else []
+
+    resume_words = resume_text.split()
+    
     for jd_skill in jd_skills_unique:
         skill_found = False
         
@@ -142,9 +147,11 @@ async def match_resume_to_jd(resume_sections: List[Dict[str, Any]], jd_analysis:
             skill_found = True
             continue
             
-        # Fuzzy / stem match
-        for token in resume_text.split():
-            if fuzzy_match(jd_skill, token) or stem_match(jd_skill, token):
+        # Fuzzy / stem match using n-gram windows
+        skill_word_count = len(norm_jd.split())
+        for i in range(len(resume_words) - skill_word_count + 1):
+            window = ' '.join(resume_words[i:i + skill_word_count])
+            if fuzzy_match(jd_skill, window) or stem_match(jd_skill, window):
                 matched_skills.append({"skill": jd_skill, "match_type": "fuzzy", "confidence": 0.9})
                 skill_found = True
                 break
@@ -153,12 +160,13 @@ async def match_resume_to_jd(resume_sections: List[Dict[str, Any]], jd_analysis:
             continue
             
         # Semantic match
-        sentences = [s.strip() for s in resume_text.split('.') if len(s.strip()) > 10]
         max_sim = 0.0
-        for sentence in sentences[:30]:  # Limit to 30 sentences for performance
-            sim = compute_similarity(jd_skill, sentence)
-            if sim > max_sim:
-                max_sim = sim
+        if sentence_embeddings:
+            skill_emb = generate_embedding(jd_skill)
+            for s_emb in sentence_embeddings:
+                sim = cosine_similarity(skill_emb, s_emb)
+                if sim > max_sim:
+                    max_sim = sim
                 
         if max_sim > 0.75:
             matched_skills.append({"skill": jd_skill, "match_type": "semantic", "confidence": max_sim})
@@ -186,4 +194,20 @@ async def match_resume_to_jd(resume_sections: List[Dict[str, Any]], jd_analysis:
         "missing_skills": missing_skills,
         "keyword_match_rate": keyword_match_rate,
         "semantic_similarity": overall_semantic_sim,
+    }
+
+async def match_section_to_jd(section: Dict[str, Any], jd_analysis: Dict[str, Any]) -> Dict[str, Any]:
+    match_result = await match_resume_to_jd([section], jd_analysis)
+    
+    matched = [m["skill"] for m in match_result["matched_skills"]]
+    missing = match_result["missing_skills"]
+    
+    total = len(matched) + len(missing) + len(match_result["partial_matches"])
+    score = (len(matched) + 0.5 * len(match_result["partial_matches"])) / total * 100 if total > 0 else 0.0
+    
+    return {
+        "score": score,
+        "matched": matched,
+        "missing": missing,
+        "recommendation": ""
     }
