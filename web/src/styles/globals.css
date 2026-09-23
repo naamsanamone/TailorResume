@@ -1,6 +1,41 @@
 @import 'tailwindcss';
 @import './theme.css';
 
+/*
+ * Fix: Tailwind v4 base reset strips fieldset/legend styles that MUI
+ * needs for its notched-outline TextFields. Without this, labels
+ * overlap the input values instead of floating into the notch.
+ */
+
+/* Restore the legend notch used by MUI OutlinedInput */
+.MuiOutlinedInput-notchedOutline legend {
+  float: unset !important;
+  width: auto !important;
+  overflow: hidden !important;
+  display: block !important;
+  padding: 0 !important;
+  height: 11px !important;
+  font-size: 0.75em !important;
+  visibility: hidden !important;
+  max-width: 100% !important;
+  white-space: nowrap !important;
+}
+
+/* Ensure fieldset is positioned correctly */
+.MuiOutlinedInput-notchedOutline {
+  border-style: solid !important;
+}
+
+/* Force labels to shrink when the field has a value */
+.MuiInputLabel-shrink {
+  transform: translate(14px, -9px) scale(0.75) !important;
+}
+
+/* Fix for filled variant labels */
+.MuiInputLabel-filled.MuiInputLabel-shrink {
+  transform: translate(12px, 7px) scale(0.75) !important;
+}
+
 html,
 body {
   font-family: 'Roboto', sans-serif;
