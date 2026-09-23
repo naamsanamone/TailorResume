@@ -40,7 +40,7 @@ class LLMClient:
             os.environ["DEEPSEEK_API_KEY"] = api_key
 
     @retry(
-        stop=stop_after_attempt(1),
+        stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=2, max=10),
         reraise=True,
     )
@@ -63,6 +63,11 @@ class LLMClient:
                 "temperature": temperature,
                 "max_tokens": max_tokens,
             }
+            # Automatic fallback to alternative models if primary hits quota/rate limits
+            if self.provider == "gemini":
+                all_fallbacks = ["gemini/gemini-3.6-flash", "gemini/gemini-3.5-flash-lite", "gemini/gemini-2.5-flash"]
+                kwargs["fallbacks"] = [m for m in all_fallbacks if m != self.model]
+
             # Don't pass base_url for gemini — LiteLLM handles it
             if self.base_url and self.provider not in ("gemini", "anthropic"):
                 kwargs["base_url"] = self.base_url
