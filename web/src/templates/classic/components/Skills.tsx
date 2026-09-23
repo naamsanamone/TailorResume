@@ -4,17 +4,21 @@ import type { ResumePalette } from '@/templates/common/resumePalette';
 import type { ISkillItem } from '@/stores/skill.interface';
 
 export function Skills({
-  languages,
-  frameworks,
-  tools,
+  languages = [],
+  frameworks = [],
+  technologies = [],
+  tools = [],
+  databases = [],
   p,
 }: {
-  languages: ISkillItem[];
-  frameworks: ISkillItem[];
-  tools: ISkillItem[];
+  languages?: ISkillItem[];
+  frameworks?: ISkillItem[];
+  technologies?: ISkillItem[];
+  tools?: ISkillItem[];
+  databases?: ISkillItem[];
   p: ResumePalette;
 }) {
-  const merged = languages.concat(frameworks, tools);
+  const merged = (languages || []).concat(frameworks || [], technologies || [], tools || [], databases || []);
   return (
     <SectionValidator value={merged}>
       <section>

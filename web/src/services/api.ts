@@ -87,6 +87,7 @@ export interface TailorSummaryResponse {
   tailored_summary: string;
   keywords_incorporated: string[];
   before_score: number;
+  after_score: number;
   ats_score: number;
 }
 
@@ -94,12 +95,16 @@ export interface TailorBulletsResponse {
   tailored_bullets: string[];
   keywords_incorporated: string[];
   before_score: number;
+  after_score: number;
   ats_score: number;
 }
 
 export interface TailorSkillsResponse {
   tailored_skills: Record<string, any>;
   keywords_incorporated: string[];
+  before_score: number;
+  after_score: number;
+  ats_score: number;
 }
 
 /* ─────────── Score ─────────── */

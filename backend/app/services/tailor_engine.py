@@ -155,7 +155,12 @@ async def tailor_resume(
                         "You are an expert resume writer. Apply the XYZ formula. Do not fabricate."
                     )
                     if isinstance(new_bullets_data, dict) and isinstance(new_bullets_data.get("bullets"), list) and new_bullets_data["bullets"]:
-                        entry["bullets"] = new_bullets_data["bullets"]
+                        cleaned_b = []
+                        for b in new_bullets_data["bullets"]:
+                            s = re.sub(r'\*\*(.*?)\*\*', r'\1', str(b)).replace('*', '').strip()
+                            if s:
+                                cleaned_b.append(s)
+                        entry["bullets"] = cleaned_b
                         changes_summary.append(f"Enhanced bullet points for {entry.get('title', 'role')} using XYZ impact formula.")
                         new_kw = new_bullets_data.get("keywords_incorporated", [])
                         if isinstance(new_kw, list):

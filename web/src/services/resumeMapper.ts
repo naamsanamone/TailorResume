@@ -37,7 +37,12 @@ export function extractBulletsFromHtml(html: string): string[] {
 
 export function bulletsToHtml(bullets: string[]): string {
   if (!bullets || bullets.length === 0) return '';
-  return `<ul>${bullets.map((b) => `<li>${b}</li>`).join('')}</ul>`;
+  const clean = bullets.map((b) => {
+    let s = (b || '').replace(/\*\*(.*?)\*\*/g, '$1');
+    s = s.replace(/\*/g, '').trim();
+    return `<li>${s}</li>`;
+  });
+  return `<ul>${clean.join('')}</ul>`;
 }
 
 /* ────────────── Frontend → Backend ────────────── */

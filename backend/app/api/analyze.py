@@ -9,7 +9,7 @@ from app.schemas.score import ScoreBreakdown
 from app.schemas.resume import ResumeSection
 from app.services.jd_analyzer import analyze_job_description
 from app.services.matcher import match_resume_to_jd, match_section_to_jd
-from app.services.scorer import calculate_ats_score
+from app.services.scorer import calculate_ats_score, calculate_section_score
 
 logger = logging.getLogger(__name__)
 
@@ -68,63 +68,13 @@ async def analyze_resume_endpoint(request: AnalyzeRequest):
             completeness_score=score_data["breakdown"]["completeness_score"],
         )
 
-        # Per-section scoring
+        # Per-section scoring using realistic and intuitive scoring formulas
         section_scores: Dict[str, Any] = {}
-
         for sec in sections:
             sec_type = (sec.get("type") or "").lower()
-
-            if sec_type == "summary":
-                result = await match_section_to_jd(sec, jd_analysis)
-                # Check if summary mentions the target role
-                target_title = (jd_analysis.get("jobTitle") or "").lower()
-                summary_text = (sec.get("text") or "").lower()
-                if target_title and target_title not in summary_text:
-                    result["recommendation"] = f'Rewrite your summary to mention the target role "{jd_analysis.get("jobTitle", "")}" and incorporate key skills: {", ".join(result["missing"][:3])}'
-                elif result["score"] < 50:
-                    result["recommendation"] = f'Enhance your summary with JD keywords: {", ".join(result["missing"][:3])}'
-                else:
-                    result["recommendation"] = "Summary has good keyword coverage."
-                section_scores["summary"] = result
-
-            elif sec_type == "experience":
-                # Overall experience score
-                result = await match_section_to_jd(sec, jd_analysis)
-                if result["score"] < 50:
-                    result["recommendation"] = "Add more JD-relevant keywords and quantified achievements to your bullet points."
-                else:
-                    result["recommendation"] = "Experience section has good keyword coverage."
-
-                # Per-entry scoring
-                entries = sec.get("entries") or []
-                entry_scores = []
-                for entry in entries:
-                    if not isinstance(entry, dict):
-                        continue
-                    # Build a mini-section with just this entry's data
-                    mini_section = {
-                        "type": "experience",
-                        "entries": [entry],
-                    }
-                    entry_result = await match_section_to_jd(mini_section, jd_analysis)
-                    entry_scores.append({
-                        "title": entry.get("title", ""),
-                        "company": entry.get("company", ""),
-                        "score": round(entry_result["score"], 1),
-                        "matched": entry_result["matched"],
-                        "missing": entry_result["missing"],
-                    })
-
-                result["entries"] = entry_scores
-                section_scores["experience"] = result
-
-            elif sec_type == "skills":
-                result = await match_section_to_jd(sec, jd_analysis)
-                if result["score"] < 50:
-                    result["recommendation"] = f'Add missing skills: {", ".join(result["missing"][:5])}'
-                else:
-                    result["recommendation"] = "Skills section covers most JD requirements."
-                section_scores["skills"] = result
+            if sec_type in ("summary", "experience", "skills"):
+                res = await calculate_section_score(sec, jd_analysis)
+                section_scores[sec_type] = res
 
         return AnalyzeResponse(
             overall_score=score_data["ats_score"],

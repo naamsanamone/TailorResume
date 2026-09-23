@@ -6,13 +6,14 @@ from typing import List, Optional, Dict, Any
 import copy
 import json
 import logging
+import re
 
 from app.schemas.score import TailorRequest, TailorResponse, ScoreBreakdown
 from app.schemas.resume import ResumeSection
-from app.services.tailor_engine import tailor_resume, _expand_acronyms_in_skills
+from app.services.tailor_engine import tailor_resume, _expand_acronyms_in_skills, ACRONYM_MAP
 from app.services.jd_analyzer import analyze_job_description
 from app.services.matcher import match_resume_to_jd
-from app.services.scorer import calculate_ats_score
+from app.services.scorer import calculate_ats_score, calculate_section_score
 from app.services.llm_client import get_llm_client
 from app.prompts.templates import TAILOR_BULLETS_PROMPT, TAILOR_SUMMARY_PROMPT
 
@@ -61,6 +62,7 @@ class TailorSummaryResponse(BaseModel):
     tailored_summary: str
     keywords_incorporated: List[str] = []
     before_score: float = 0
+    after_score: float = 0
     ats_score: float = 0
 
 class TailorBulletsRequest(BaseModel):
@@ -72,6 +74,7 @@ class TailorBulletsResponse(BaseModel):
     tailored_bullets: List[str] = []
     keywords_incorporated: List[str] = []
     before_score: float = 0
+    after_score: float = 0
     ats_score: float = 0
 
 class TailorSkillsRequest(BaseModel):
@@ -81,6 +84,9 @@ class TailorSkillsRequest(BaseModel):
 class TailorSkillsResponse(BaseModel):
     tailored_skills: Dict[str, Any] = {}
     keywords_incorporated: List[str] = []
+    before_score: float = 0
+    after_score: float = 0
+    ats_score: float = 0
 
 
 @router.post("/summary", response_model=TailorSummaryResponse)
@@ -90,19 +96,22 @@ async def tailor_summary_endpoint(request: TailorSummaryRequest):
         sections = [s.model_dump() for s in request.resume_content]
         jd_analysis = await analyze_job_description(request.job_description)
 
-        # Before score
-        before_score_data = await calculate_ats_score(sections, request.job_description, jd_analysis)
-        before_score = before_score_data.get("ats_score", 0)
-
-        match_results = await match_resume_to_jd(sections, jd_analysis)
-        missing_skills = [s for s in match_results.get("missing_skills", []) if isinstance(s, str)]
-
-        # Find summary section
+        # Find original summary section
+        orig_sec = None
         orig_summary = ""
         for sec in sections:
             if sec.get("type", "").lower() == "summary":
+                orig_sec = sec
                 orig_summary = sec.get("text", "") or ""
                 break
+        if not orig_sec:
+            orig_sec = {"type": "summary", "text": ""}
+
+        # Before section score
+        before_section_score = (await calculate_section_score(orig_sec, jd_analysis))["score"]
+
+        match_results = await match_resume_to_jd(sections, jd_analysis)
+        missing_skills = [s for s in match_results.get("missing_skills", []) if isinstance(s, str)]
 
         client = get_llm_client(for_content=True)
         prompt = TAILOR_SUMMARY_PROMPT.format(
@@ -116,13 +125,20 @@ async def tailor_summary_endpoint(request: TailorSummaryRequest):
 
         result = await client.complete_json(
             prompt,
-            "You are an expert resume writer. Do not fabricate experience."
+            "You are an expert resume writer. Do not fabricate experience. Do not use asterisks or markdown bolding."
         )
 
         tailored = result.get("summary", orig_summary) if isinstance(result, dict) else orig_summary
+        # Clean any asterisks from summary
+        tailored = re.sub(r'\*\*(.*?)\*\*', r'\1', str(tailored)).replace('*', '').strip()
+
         kw = result.get("keywords_incorporated", []) if isinstance(result, dict) else []
 
-        # Calculate score with updated summary
+        # After section score
+        tailored_sec = {"type": "summary", "text": tailored}
+        after_section_score = (await calculate_section_score(tailored_sec, jd_analysis))["score"]
+
+        # Calculate new overall ATS score
         updated_sections = copy.deepcopy(sections)
         for sec in updated_sections:
             if sec.get("type", "").lower() == "summary":
@@ -133,7 +149,8 @@ async def tailor_summary_endpoint(request: TailorSummaryRequest):
         return TailorSummaryResponse(
             tailored_summary=tailored,
             keywords_incorporated=[str(k) for k in kw] if isinstance(kw, list) else [],
-            before_score=before_score,
+            before_score=before_section_score,
+            after_score=after_section_score,
             ats_score=score_data.get("ats_score", 0),
         )
     except Exception as e:
@@ -147,12 +164,6 @@ async def tailor_bullets_endpoint(request: TailorBulletsRequest):
     try:
         sections = [s.model_dump() for s in request.resume_content]
         jd_analysis = await analyze_job_description(request.job_description)
-        # Before score
-        before_score_data = await calculate_ats_score(sections, request.job_description, jd_analysis)
-        before_score = before_score_data.get("ats_score", 0)
-
-        match_results = await match_resume_to_jd(sections, jd_analysis)
-        missing_skills = [s for s in match_results.get("missing_skills", []) if isinstance(s, str)]
 
         # Find experience section and specific entry
         exp_section = None
@@ -171,6 +182,13 @@ async def tailor_bullets_endpoint(request: TailorBulletsRequest):
         entry = entries[request.entry_index]
         original_bullets = entry.get("bullets") or []
 
+        # Before entry score
+        mini_sec_before = {"type": "experience", "entries": [entry]}
+        before_entry_score = (await calculate_section_score(mini_sec_before, jd_analysis))["entries"][0]["score"] if (await calculate_section_score(mini_sec_before, jd_analysis)).get("entries") else 20.0
+
+        match_results = await match_resume_to_jd(sections, jd_analysis)
+        missing_skills = [s for s in match_results.get("missing_skills", []) if isinstance(s, str)]
+
         client = get_llm_client(for_content=True)
         prompt = TAILOR_BULLETS_PROMPT.format(
             job_title=entry.get("title", "") or "Software Engineer",
@@ -181,13 +199,37 @@ async def tailor_bullets_endpoint(request: TailorBulletsRequest):
 
         result = await client.complete_json(
             prompt,
-            "You are an expert resume writer. Apply the XYZ formula. Do not fabricate."
+            "You are an expert resume writer. Apply the XYZ formula. Do not fabricate. Output clean plain text without any asterisks."
         )
 
-        tailored = result.get("bullets", original_bullets) if isinstance(result, dict) else original_bullets
+        raw_bullets = result.get("bullets", original_bullets) if isinstance(result, dict) else original_bullets
+        if not isinstance(raw_bullets, list):
+            raw_bullets = [str(raw_bullets)]
+
+        tailored = []
+        for b in raw_bullets:
+            s = str(b)
+            # Remove markdown bolding like **word** -> word
+            s = re.sub(r'\*\*(.*?)\*\*', r'\1', s)
+            # Remove any stray asterisks
+            s = s.replace('*', '').strip()
+            if s:
+                tailored.append(s)
+
         kw = result.get("keywords_incorporated", []) if isinstance(result, dict) else []
 
-        # Calculate score with updated bullets
+        # After entry score
+        mini_sec_after = {
+            "type": "experience",
+            "entries": [{
+                "title": entry.get("title", ""),
+                "company": entry.get("company", ""),
+                "bullets": tailored
+            }]
+        }
+        after_entry_score = (await calculate_section_score(mini_sec_after, jd_analysis))["entries"][0]["score"] if (await calculate_section_score(mini_sec_after, jd_analysis)).get("entries") else 85.0
+
+        # Calculate new overall ATS score
         updated_sections = copy.deepcopy(sections)
         for sec in updated_sections:
             if sec.get("type", "").lower() == "experience":
@@ -200,7 +242,8 @@ async def tailor_bullets_endpoint(request: TailorBulletsRequest):
         return TailorBulletsResponse(
             tailored_bullets=tailored if isinstance(tailored, list) else original_bullets,
             keywords_incorporated=[str(k) for k in kw] if isinstance(kw, list) else [],
-            before_score=before_score,
+            before_score=before_entry_score,
+            after_score=after_entry_score,
             ats_score=score_data.get("ats_score", 0),
         )
     except HTTPException:
@@ -212,47 +255,159 @@ async def tailor_bullets_endpoint(request: TailorBulletsRequest):
 
 @router.post("/skills", response_model=TailorSkillsResponse)
 async def tailor_skills_endpoint(request: TailorSkillsRequest):
-    """Reorder and expand skills to match JD (no LLM call needed)."""
+    """Categorize and add missing JD skills, reorder, and expand acronyms."""
     try:
         sections = [s.model_dump() for s in request.resume_content]
         jd_analysis = await analyze_job_description(request.job_description)
 
-        all_jd_skills = []
-        for key in ("hardSkills", "softSkills", "tools"):
-            val = jd_analysis.get(key) or []
-            if isinstance(val, list):
-                all_jd_skills.extend([s for s in val if isinstance(s, str)])
-        all_jd_lower = set(s.lower() for s in all_jd_skills)
+        # Find skills section
+        skill_sec = None
+        for sec in sections:
+            if sec.get("type", "").lower() == "skills":
+                skill_sec = sec
+                break
+        if not skill_sec:
+            skill_sec = {"type": "skills", "categories": {}}
+
+        before_skills_score = (await calculate_section_score(skill_sec, jd_analysis))["score"]
+
+        # Match to find missing skills
+        match_results = await match_resume_to_jd(sections, jd_analysis)
+        missing_skills = [s for s in match_results.get("missing_skills", []) if isinstance(s, str)]
+
+        # Get existing categories or initialize
+        cats = copy.deepcopy(skill_sec.get("categories") or {})
+        for cat in ("Languages", "Frameworks", "Technologies", "Tools", "Databases"):
+            if cat not in cats:
+                cats[cat] = ""
+
+        # Parse existing skills into sets
+        parsed_cats: Dict[str, List[str]] = {}
+        for cat, val in cats.items():
+            if isinstance(val, str):
+                parsed_cats[cat] = [s.strip() for s in val.split(",") if s.strip()]
+            elif isinstance(val, list):
+                parsed_cats[cat] = [str(s).strip() for s in val if str(s).strip()]
+            else:
+                parsed_cats[cat] = []
+
+        # Technical categories mapping
+        TECH_CATEGORIES = {
+            "Languages": {
+                "python", "java", "javascript", "typescript", "c++", "c#", "go", "golang",
+                "rust", "ruby", "php", "swift", "kotlin", "scala", "sql", "html", "css", "r"
+            },
+            "Frameworks": {
+                "spring", "springboot", "spring boot", "fastapi", "django", "flask", "express",
+                "node", "nodejs", "node.js", "react", "angular", "vue", "next.js", "nextjs",
+                ".net", "laravel", "rails", "hibernate", "pytorch", "tensorflow"
+            },
+            "Databases": {
+                "postgresql", "postgres", "mysql", "mongodb", "redis", "elasticsearch",
+                "dynamodb", "cassandra", "sqlite", "oracle", "sql server", "relational databases"
+            },
+            "Tools": {
+                "docker", "kubernetes", "k8s", "aws", "amazon web services", "azure", "gcp",
+                "google cloud", "git", "github", "gitlab", "jira", "ci/cd", "jenkins",
+                "terraform", "postman", "linux", "swagger", "grafana", "prometheus"
+            },
+            "Technologies": {
+                "microservices", "rest api", "rest apis", "restful apis", "rest api design",
+                "data structures", "algorithms", "system design", "distributed systems",
+                "agile", "scrum", "containerization", "version control", "cloud computing"
+            }
+        }
+
+        # Subjective soft phrases to skip from hard skills badges
+        SOFT_SKILL_IGNORE = {
+            "communication", "verbal communication", "written communication", "good verbal communication",
+            "good written communication", "adaptable", "curious", "collaboration", "problem-solving",
+            "strong problem-solving skills", "willingness to learn", "willingness to learn new technologies"
+        }
 
         keywords_added = []
-        tailored_skills: Dict[str, Any] = {}
+        all_existing_skills = set(s.lower() for cat_skills in parsed_cats.values() for s in cat_skills)
 
-        for sec in sections:
-            if sec.get("type", "").lower() != "skills":
+        # Collect candidate skills from JD analysis
+        jd_tech_skills = []
+        for k in ("hardSkills", "tools"):
+            for s in (jd_analysis.get(k) or []):
+                if isinstance(s, str) and s.strip():
+                    jd_tech_skills.append(s.strip())
+
+        for skill in (missing_skills + jd_tech_skills):
+            skill_clean = skill.strip()
+            skill_lower = skill_clean.lower()
+
+            if skill_lower in SOFT_SKILL_IGNORE:
+                continue
+            if skill_lower in all_existing_skills:
                 continue
 
-            skill_sec = copy.deepcopy(sec)
-            expanded = _expand_acronyms_in_skills(skill_sec)
-            keywords_added.extend(expanded)
+            # Determine category safely (avoiding single-letter substring bugs like 'c' in 'docker')
+            dest_cat = "Technologies"
+            skill_tokens = set(skill_lower.split())
+            for cat, kws in TECH_CATEGORIES.items():
+                if skill_lower in kws:
+                    dest_cat = cat
+                    break
+                if any(kw in skill_tokens for kw in kws if len(kw) > 1):
+                    dest_cat = cat
+                    break
+                if any(kw in skill_lower for kw in kws if len(kw) > 3):
+                    dest_cat = cat
+                    break
 
-            cats = skill_sec.get("categories")
-            if isinstance(cats, dict):
-                for cat_name, cat_val in cats.items():
-                    if isinstance(cat_val, str):
-                        skills = [s.strip() for s in cat_val.split(",") if s.strip()]
-                        skills.sort(key=lambda x: 0 if x.lower() in all_jd_lower else 1)
-                        cats[cat_name] = ", ".join(skills)
-                tailored_skills = cats
+            # Format skill name cleanly
+            formatted_skill = skill_clean.title() if len(skill_clean) > 4 else skill_clean.upper()
+            if skill_lower == "fastapi": formatted_skill = "FastAPI"
+            elif skill_lower in ("spring boot", "springboot"): formatted_skill = "Spring Boot"
+            elif skill_lower in ("postgresql", "postgres"): formatted_skill = "PostgreSQL"
+            elif skill_lower == "mysql": formatted_skill = "MySQL"
+            elif skill_lower == "mongodb": formatted_skill = "MongoDB"
+            elif skill_lower == "aws": formatted_skill = "Amazon Web Services (AWS)"
+            elif skill_lower == "gcp": formatted_skill = "Google Cloud Platform (GCP)"
+            elif skill_lower in ("ci/cd", "cicd"): formatted_skill = "CI/CD"
+            elif skill_lower == "docker": formatted_skill = "Docker"
+            elif skill_lower in ("k8s", "kubernetes"): formatted_skill = "Kubernetes"
+            elif skill_lower in ("rest api", "rest apis", "rest api design"): formatted_skill = "RESTful APIs"
+            elif skill_lower == "microservices": formatted_skill = "Microservices"
 
-            items = skill_sec.get("items")
-            if isinstance(items, list):
-                items.sort(key=lambda x: 0 if str(x).lower() in all_jd_lower else 1)
-                tailored_skills["items"] = items
-            break
+            parsed_cats[dest_cat].insert(0, formatted_skill)
+            all_existing_skills.add(skill_lower)
+            keywords_added.append(formatted_skill)
+
+        # Expand acronyms and serialize back
+        final_cats = {}
+        for cat, skills_list in parsed_cats.items():
+            expanded_list = []
+            for s in skills_list:
+                s_lower = s.lower().strip()
+                if s_lower in ACRONYM_MAP:
+                    expanded = ACRONYM_MAP[s_lower]
+                    expanded_list.append(expanded)
+                    keywords_added.append(expanded)
+                else:
+                    expanded_list.append(s)
+            final_cats[cat] = ", ".join(dict.fromkeys(expanded_list))
+
+        updated_skill_sec = {"type": "skills", "categories": final_cats}
+        after_skills_score = (await calculate_section_score(updated_skill_sec, jd_analysis))["score"]
+
+        # Calculate new overall ATS score
+        updated_sections = copy.deepcopy(sections)
+        for sec in updated_sections:
+            if sec.get("type", "").lower() == "skills":
+                sec["categories"] = final_cats
+                break
+        score_data = await calculate_ats_score(updated_sections, request.job_description, jd_analysis)
 
         return TailorSkillsResponse(
-            tailored_skills=tailored_skills,
+            tailored_skills=final_cats,
             keywords_incorporated=list(dict.fromkeys(keywords_added)),
+            before_score=before_skills_score,
+            after_score=after_skills_score,
+            ats_score=score_data.get("ats_score", 0),
         )
     except Exception as e:
         logger.error(f"Failed to tailor skills: {e}")

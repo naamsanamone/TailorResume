@@ -67,11 +67,27 @@ const Education = ({ education, p }: { education: IEducation[]; p: ResumePalette
     </div>
   ) : null;
 
-const Skills = ({ languages, frameworks, tools, p }: { languages: IItem[]; frameworks: IItem[]; tools: IItem[]; p: ResumePalette }) => {
+const Skills = ({
+  languages = [],
+  frameworks = [],
+  technologies = [],
+  tools = [],
+  databases = [],
+  p,
+}: {
+  languages?: IItem[];
+  frameworks?: IItem[];
+  technologies?: IItem[];
+  tools?: IItem[];
+  databases?: IItem[];
+  p: ResumePalette;
+}) => {
   const cats = [
-    { label: 'Languages', items: languages },
-    { label: 'Frameworks', items: frameworks },
-    { label: 'Tools', items: tools },
+    { label: 'Languages', items: languages || [] },
+    { label: 'Frameworks', items: frameworks || [] },
+    { label: 'Technologies', items: technologies || [] },
+    { label: 'Tools', items: tools || [] },
+    { label: 'Databases', items: databases || [] },
   ].filter(c => c.items.length > 0);
   return cats.length ? (
     <div>
@@ -108,7 +124,7 @@ export default function ResumaveTemplate() {
       case 'summary': return <Summary summary={data.basics.summary} p={p} />;
       case 'work': return <Work work={data.work} p={p} />;
       case 'education': return <Education education={data.education} p={p} />;
-      case 'skills': return <Skills languages={data.skills.languages} frameworks={data.skills.frameworks} tools={data.skills.tools} p={p} />;
+      case 'skills': return <Skills languages={data.skills.languages} frameworks={data.skills.frameworks} technologies={data.skills.technologies} tools={data.skills.tools} databases={data.skills.databases} p={p} />;
       case 'awards': return <Awards awards={data.awards} p={p} />;
       default: return null;
     }

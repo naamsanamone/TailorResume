@@ -97,10 +97,11 @@ STRICT RULES:
 2. Start each bullet with a UNIQUE, strong action verb (Engineered, Architected, Spearheaded, Optimized, Automated, Orchestrated, Streamlined). NEVER repeat the same verb.
 3. EVERY bullet MUST contain at least one quantifiable metric (%, $, time saved, scale, users, uptime, throughput).
 4. Use the DUAL-FORM rule for acronyms: write both "Continuous Integration/Continuous Deployment (CI/CD)", "Amazon Web Services (AWS)" etc.
-5. Incorporate missing keywords NATURALLY in context. Example: "Leveraged **Docker** and **Kubernetes** to containerize 15 microservices, reducing deployment time by 60%"
+5. Incorporate missing keywords NATURALLY in plain text. Example: "Leveraged Docker and Kubernetes to containerize 15 microservices, reducing deployment time by 60%"
 6. DO NOT fabricate skills or achievements the candidate does not have.
 7. Keep each bullet to 1-2 lines (15-25 words optimal).
 8. Do NOT start any bullet with "Responsible for" or "Worked on".
+9. CRITICAL: NEVER use asterisks (**) or markdown bolding in the output. Output clean plain text only without any asterisks.
 
 Output JSON format:
 {{

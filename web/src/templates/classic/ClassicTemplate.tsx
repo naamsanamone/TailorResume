@@ -34,7 +34,9 @@ export default function ClassicTemplate() {
           <Skills
             languages={data.skills.languages}
             frameworks={data.skills.frameworks}
+            technologies={data.skills.technologies}
             tools={data.skills.tools}
+            databases={data.skills.databases}
             p={resumePalette}
           />
         );
