@@ -72,8 +72,9 @@ export const ResumeLayout = ({ pauseFitToWidth = false }: { pauseFitToWidth?: bo
 
   useEffect(() => {
     const selectedTemplateId =
-      localStorage.getItem('selectedTemplateId') || AVAILABLE_TEMPLATES['modern'].id;
-    useTemplates.getState().setTemplate(AVAILABLE_TEMPLATES[selectedTemplateId]);
+      localStorage.getItem('selectedTemplateId') || 'modern';
+    const template = AVAILABLE_TEMPLATES[selectedTemplateId] || AVAILABLE_TEMPLATES['modern'];
+    useTemplates.getState().setTemplate(template);
   }, []);
 
   useEffect(() => {
