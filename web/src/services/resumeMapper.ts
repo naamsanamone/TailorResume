@@ -1,0 +1,188 @@
+/**
+ * Data mapper: converts between frontend Zustand stores ↔ backend ResumeSection[] format
+ */
+
+import type { IBasics, IWorkIntrf, IEducation, IAwards, IItem, IVolunteer } from '@/stores/index.interface';
+
+/* ────────────── Backend Section Types ────────────── */
+
+interface ResumeSection {
+  name: string;
+  type: string;
+  fullName?: string;
+  email?: string;
+  phone?: string;
+  location?: string;
+  linkedin?: string;
+  github?: string;
+  portfolio?: string;
+  headline?: string;
+  text?: string;
+  categories?: Record<string, string>;
+  items?: string[];
+  entries?: any[];
+}
+
+/* ────────────── Frontend → Backend ────────────── */
+
+export function zustandToSections(
+  basics: IBasics,
+  work: IWorkIntrf[],
+  education: IEducation[],
+  skills: { languages: IItem[]; frameworks: IItem[]; technologies: IItem[]; tools: IItem[]; databases: IItem[] },
+  awards: IAwards[],
+  volunteer: IVolunteer[]
+): ResumeSection[] {
+  const sections: ResumeSection[] = [];
+
+  // Header
+  const linkedinProfile = basics.profiles?.find(
+    (p) => p.network.toLowerCase() === 'linkedin'
+  );
+  const githubProfile = basics.profiles?.find(
+    (p) => p.network.toLowerCase() === 'github'
+  );
+
+  sections.push({
+    name: 'Header',
+    type: 'header',
+    fullName: basics.name,
+    email: basics.email,
+    phone: basics.phone,
+    location: basics.location?.city || '',
+    linkedin: linkedinProfile?.url || '',
+    github: githubProfile?.url || '',
+    portfolio: basics.url || '',
+    headline: basics.label || '',
+  });
+
+  // Summary
+  if (basics.summary) {
+    sections.push({
+      name: 'Summary',
+      type: 'summary',
+      text: basics.summary,
+    });
+  }
+
+  // Experience
+  if (work.length > 0) {
+    sections.push({
+      name: 'Experience',
+      type: 'experience',
+      entries: work.map((w) => ({
+        title: w.position,
+        company: w.name,
+        location: '',
+        duration: w.years || '',
+        bullets: w.highlights.filter(Boolean),
+      })),
+    });
+  }
+
+  // Education
+  if (education.length > 0) {
+    sections.push({
+      name: 'Education',
+      type: 'education',
+      entries: education.map((e) => ({
+        institution: e.institution,
+        degree: `${e.studyType}${e.area ? ' in ' + e.area : ''}`,
+        location: '',
+        year: e.score ? `GPA: ${e.score}` : '',
+      })),
+    });
+  }
+
+  // Skills
+  const skillCategories: Record<string, string> = {};
+  if (skills.languages.length) skillCategories['Languages'] = skills.languages.map((s) => s.name).join(', ');
+  if (skills.frameworks.length) skillCategories['Frameworks'] = skills.frameworks.map((s) => s.name).join(', ');
+  if (skills.technologies.length) skillCategories['Technologies'] = skills.technologies.map((s) => s.name).join(', ');
+  if (skills.tools.length) skillCategories['Tools'] = skills.tools.map((s) => s.name).join(', ');
+  if (skills.databases.length) skillCategories['Databases'] = skills.databases.map((s) => s.name).join(', ');
+
+  if (Object.keys(skillCategories).length > 0) {
+    sections.push({
+      name: 'Skills',
+      type: 'skills',
+      categories: skillCategories,
+    });
+  }
+
+  return sections;
+}
+
+/* ────────────── Backend → Frontend (apply tailored data) ────────────── */
+
+export interface TailoredUpdates {
+  summary?: string;
+  label?: string;
+  experiences?: { index: number; highlights: string[] }[];
+  skills?: {
+    languages?: IItem[];
+    frameworks?: IItem[];
+    technologies?: IItem[];
+    tools?: IItem[];
+    databases?: IItem[];
+  };
+}
+
+/**
+ * Parse tailored sections from backend into partial updates for Zustand stores.
+ * Does NOT apply them — returns the updates so UI can show diff first.
+ */
+export function sectionsToUpdates(tailoredSections: ResumeSection[]): TailoredUpdates {
+  const updates: TailoredUpdates = {};
+
+  for (const sec of tailoredSections) {
+    const type = (sec.type || '').toLowerCase();
+
+    // Header → label update
+    if (type === 'header' && sec.headline) {
+      updates.label = sec.headline;
+    }
+
+    // Summary → summary text
+    if (type === 'summary' && sec.text) {
+      updates.summary = sec.text;
+    }
+
+    // Experience → bullet updates
+    if (type === 'experience' && sec.entries) {
+      updates.experiences = sec.entries.map((entry: any, i: number) => ({
+        index: i,
+        highlights: (entry.bullets || []).filter(Boolean),
+      }));
+    }
+
+    // Skills → skill store updates
+    if (type === 'skills' && sec.categories) {
+      const cats = sec.categories;
+      updates.skills = {};
+
+      if (cats['Languages']) {
+        updates.skills.languages = parseSkillString(cats['Languages']);
+      }
+      if (cats['Frameworks']) {
+        updates.skills.frameworks = parseSkillString(cats['Frameworks']);
+      }
+      if (cats['Technologies']) {
+        updates.skills.technologies = parseSkillString(cats['Technologies']);
+      }
+      if (cats['Tools']) {
+        updates.skills.tools = parseSkillString(cats['Tools']);
+      }
+      if (cats['Databases']) {
+        updates.skills.databases = parseSkillString(cats['Databases']);
+      }
+    }
+  }
+
+  return updates;
+}
+
+function parseSkillString(val: string | string[]): IItem[] {
+  const arr = typeof val === 'string' ? val.split(',').map((s) => s.trim()).filter(Boolean) : val;
+  return arr.map((name) => ({ name: String(name), level: 0 }));
+}

@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
-import { tailorResume, type TailorResponse } from '@/lib/api';
-import { zustandToSections, sectionsToUpdates, type TailoredUpdates } from '@/lib/resumeMapper';
+import { tailorResume, type TailorResponse } from '@/services/api';
+import { zustandToSections, sectionsToUpdates, type TailoredUpdates } from '@/services/resumeMapper';
 import { useBasicDetails } from '@/stores/basic';
 import { useExperiences } from '@/stores/experience';
 import { useEducations } from '@/stores/education';
