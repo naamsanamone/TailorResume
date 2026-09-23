@@ -83,9 +83,10 @@ async def tailor_resume(
     if target_title:
         for section in tailored_sections:
             if isinstance(section, dict) and section.get("type") == "header":
-                if not section.get("headline"):
+                old_headline = section.get("headline") or ""
+                if not old_headline or old_headline.lower() != target_title.lower():
                     section["headline"] = target_title
-                    changes_summary.append(f"Added target job title headline: {target_title}")
+                    changes_summary.append(f"Updated target job title headline: {target_title}")
                 break
     
     # 1. Collect all JD skills in lowercase for matching and prioritizing

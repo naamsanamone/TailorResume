@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { tailorResume, type TailorResponse } from '@/services/api';
-import { zustandToSections, sectionsToUpdates, type TailoredUpdates } from '@/services/resumeMapper';
+import { zustandToSections, sectionsToUpdates, bulletsToHtml, type TailoredUpdates } from '@/services/resumeMapper';
 import { useBasicDetails } from '@/stores/basic';
 import { useExperiences } from '@/stores/experience';
 import { useEducations } from '@/stores/education';
@@ -79,26 +79,27 @@ const TailorLayout = () => {
   const applyChanges = useCallback(() => {
     if (!updates) return;
 
-    // Apply summary
+    // Apply summary & label/headline together
+    const currentBasics = useBasicDetails.getState().values;
+    const newBasics = { ...currentBasics };
     if (updates.summary) {
-      const current = useBasicDetails.getState().values;
-      useBasicDetails.getState().reset({ ...current, summary: updates.summary });
+      newBasics.summary = updates.summary;
     }
-
-    // Apply label/headline
     if (updates.label) {
-      const current = useBasicDetails.getState().values;
-      useBasicDetails.getState().reset({ ...current, label: updates.label });
+      newBasics.label = updates.label;
     }
+    useBasicDetails.getState().reset(newBasics);
 
     // Apply experience bullet updates
     if (updates.experiences) {
       const exps = useExperiences.getState().experiences;
       for (const upd of updates.experiences) {
         if (upd.index < exps.length) {
+          const htmlSummary = bulletsToHtml(upd.highlights);
           useExperiences.getState().updateExperience(upd.index, {
             ...exps[upd.index],
             highlights: upd.highlights,
+            summary: htmlSummary,
           });
         }
       }

@@ -39,6 +39,7 @@ class ResumeSection(BaseModel):
     linkedin: Optional[str] = None
     github: Optional[str] = None
     portfolio: Optional[str] = None
+    headline: Optional[str] = None
     
     # Summary/custom specific
     text: Optional[str] = None

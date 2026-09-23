@@ -23,6 +23,23 @@ interface ResumeSection {
   entries?: any[];
 }
 
+export function extractBulletsFromHtml(html: string): string[] {
+  if (!html) return [];
+  const matches = html.match(/<li[^>]*>(.*?)<\/li>/gi);
+  if (matches && matches.length > 0) {
+    return matches
+      .map((li) => li.replace(/<[^>]+>/g, '').trim())
+      .filter(Boolean);
+  }
+  const text = html.replace(/<[^>]+>/g, '\n').trim();
+  return text.split('\n').map((s) => s.trim()).filter(Boolean);
+}
+
+export function bulletsToHtml(bullets: string[]): string {
+  if (!bullets || bullets.length === 0) return '';
+  return `<ul>${bullets.map((b) => `<li>${b}</li>`).join('')}</ul>`;
+}
+
 /* ────────────── Frontend → Backend ────────────── */
 
 export function zustandToSections(
@@ -70,13 +87,17 @@ export function zustandToSections(
     sections.push({
       name: 'Experience',
       type: 'experience',
-      entries: work.map((w) => ({
-        title: w.position,
-        company: w.name,
-        location: '',
-        duration: w.years || '',
-        bullets: w.highlights.filter(Boolean),
-      })),
+      entries: work.map((w) => {
+        const fromHtml = extractBulletsFromHtml(w.summary || '');
+        const bullets = fromHtml.length > 0 ? fromHtml : (w.highlights || []).filter(Boolean);
+        return {
+          title: w.position,
+          company: w.name,
+          location: '',
+          duration: w.years || '',
+          bullets,
+        };
+      }),
     });
   }
 
