@@ -5,6 +5,18 @@ from app.services.matcher import match_resume_to_jd
 
 logger = logging.getLogger(__name__)
 
+def _calibrate_semantic_score(raw: float) -> float:
+    """Calibrate raw bi-encoder cosine similarity to an intuitive 0-100 ATS percentage.
+    In SentenceTransformers (all-MiniLM-L6-v2), whole-document cross-text similarity
+    typically ranges from 0.25 (unrelated) to 0.70+ (exceptionally strong alignment).
+    """
+    if raw <= 0.25:
+        return max(0.0, (raw / 0.25) * 30.0)
+    if raw < 0.50:
+        return 30.0 + ((raw - 0.25) / 0.25) * 40.0
+    return min(100.0, 70.0 + ((raw - 0.50) / 0.20) * 30.0)
+
+
 async def calculate_ats_score(
     resume_sections: List[Dict[str, Any]], 
     jd_text: str, 
@@ -18,7 +30,7 @@ async def calculate_ats_score(
     match_results = await match_resume_to_jd(resume_sections, jd_analysis)
     
     keyword_score = match_results["keyword_match_rate"] * 100
-    semantic_score = match_results["semantic_similarity"] * 100
+    semantic_score = _calibrate_semantic_score(match_results["semantic_similarity"])
     format_score = 100.0
     completeness_score = 100.0
     
@@ -55,8 +67,13 @@ async def calculate_ats_score(
     
     missing_skills = match_results["missing_skills"]
     if missing_skills:
-        top_missing = missing_skills[:5]
-        recommendations.append(f"Incorporate missing keywords naturally: {', '.join(top_missing)}")
+        top_missing = missing_skills[:4]
+        if composite >= 85:
+            recommendations.append(f"To reach 95%+, incorporate remaining keywords: {', '.join(top_missing)}")
+        else:
+            recommendations.append(f"Incorporate missing keywords naturally: {', '.join(top_missing)}")
+    elif composite >= 88:
+        recommendations.append("Outstanding match! Your resume covers all core technical and domain qualifications.")
         
     if format_score < 100:
         recommendations.append("Ensure your experience section uses bullet points starting with action verbs.")
@@ -81,38 +98,29 @@ ACTION_VERBS = {
     "architected", "engineered", "developed", "built", "implemented", "designed",
     "created", "spearheaded", "optimized", "automated", "orchestrated", "streamlined",
     "led", "managed", "deployed", "scaled", "integrated", "delivered", "executed",
-    "maintained", "resolved", "refactored", "migrated", "enhanced", "accelerated"
+    "maintained", "resolved", "refactored", "migrated", "enhanced", "accelerated",
+    "leveraged", "conducted", "directed", "transformed", "established", "formulated",
+    "championed", "pioneered", "boosted", "produced", "authored", "facilitated"
 }
 
 import re
 
 def _has_metric(text: str) -> bool:
     """Check if text contains quantifiable metric: %, $, numbers with scale."""
-    if re.search(r'\b\d+%\b', text):
-        return True
-    if re.search(r'\$\d+', text):
-        return True
-    if re.search(r'\b\d+(?:\.\d+)?\s*(?:x|times|k|m|ms|sec|hours?|users?|modules?|services?)\b', text, re.I):
-        return True
-    if re.search(r'\b(?:reduced|increased|improved|boosted|cut|saved)\b.*?\b\d+', text, re.I):
-        return True
-    return False
+    return bool(re.search(r'\b\d+(?:\.\d+)?%?|\$\d+', text))
 
 def _has_action_verb(text: str) -> bool:
     """Check if text starts with a strong action verb."""
-    words = text.strip().split()
-    if not words:
-        return False
-    first_word = words[0].lower().rstrip(',.:;')
-    return first_word in ACTION_VERBS
+    words = [w.lower().rstrip(',.:;') for w in text.strip().split()[:2]]
+    return any(w in ACTION_VERBS for w in words)
 
 async def calculate_section_score(section: Dict[str, Any], jd_analysis: Dict[str, Any]) -> Dict[str, Any]:
     """Calculate an intuitive, meaningful score (0-100) for an individual section."""
     sec_type = (section.get("type") or "").lower()
 
-    # Collect core JD hard skills and tools
+    # Collect JD hard skills, tools, and key requirements
     core_skills = []
-    for k in ("hardSkills", "tools"):
+    for k in ("hardSkills", "tools", "softSkills"):
         for s in (jd_analysis.get(k) or []):
             if isinstance(s, str) and s.strip():
                 core_skills.append(s.strip())

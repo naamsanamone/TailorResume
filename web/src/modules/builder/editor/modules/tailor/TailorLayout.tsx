@@ -476,7 +476,7 @@ const TailorLayout = () => {
                 </span>
               </div>
               <ScoreBar score={analysis.section_scores.summary.score} small />
-              {analysis.section_scores.summary.recommendation && (
+              {!tailoredSummary && analysis.section_scores.summary.score < 85 && analysis.section_scores.summary.recommendation && (
                 <p className="text-xs text-gray-500 mb-2">{analysis.section_scores.summary.recommendation}</p>
               )}
               {tailoredSummary ? (
@@ -514,7 +514,7 @@ const TailorLayout = () => {
                 </span>
               </div>
               <ScoreBar score={analysis.section_scores.experience.score} small />
-              {analysis.section_scores.experience.recommendation && (
+              {analysis.section_scores.experience.score < 80 && analysis.section_scores.experience.recommendation && (
                 <p className="text-xs text-gray-500 mb-2">{analysis.section_scores.experience.recommendation}</p>
               )}
 
@@ -566,7 +566,7 @@ const TailorLayout = () => {
                 </span>
               </div>
               <ScoreBar score={analysis.section_scores.skills.score} small />
-              {analysis.section_scores.skills.recommendation && (
+              {!tailoredSkills && analysis.section_scores.skills.score < 85 && analysis.section_scores.skills.recommendation && (
                 <p className="text-xs text-gray-500 mb-2">{analysis.section_scores.skills.recommendation}</p>
               )}
               {tailoredSkills ? (
@@ -595,16 +595,32 @@ const TailorLayout = () => {
             </div>
           )}
 
-          {/* Recommendations */}
-          {analysis.recommendations.length > 0 && (
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded mb-3">
-              <div className="text-xs font-semibold text-blue-800 mb-1">💡 Recommendations</div>
-              <ul className="text-xs text-blue-700 space-y-0.5">
-                {analysis.recommendations.map((r, i) => (
-                  <li key={i}>• {r}</li>
-                ))}
+          {/* Recommendations & 95%+ Target */}
+          {overallScore >= 85 ? (
+            <div className="p-3 bg-gradient-to-r from-emerald-50 to-green-50 border border-green-200 rounded mb-3">
+              <div className="text-xs font-bold text-green-900 mb-1 flex items-center gap-1">
+                🚀 How to reach 95%+ ATS Score
+              </div>
+              <ul className="text-xs text-green-800 space-y-1">
+                {analysis.missing_skills.length > 0 ? (
+                  <li>• Weave remaining keywords into your bullets: <strong>{analysis.missing_skills.slice(0, 3).join(', ')}</strong></li>
+                ) : (
+                  <li>• All keywords matched! Quantify more metrics (% or numbers) in older experience entries.</li>
+                )}
+                <li>• Re-tailor any entry below 80% using action verbs (Architected, Engineered) and quantifiable metrics.</li>
               </ul>
             </div>
+          ) : (
+            analysis.recommendations.length > 0 && (
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded mb-3">
+                <div className="text-xs font-semibold text-blue-800 mb-1">💡 Recommendations</div>
+                <ul className="text-xs text-blue-700 space-y-0.5">
+                  {analysis.recommendations.map((r, i) => (
+                    <li key={i}>• {r}</li>
+                  ))}
+                </ul>
+              </div>
+            )
           )}
 
           {/* Apply / Revert */}
