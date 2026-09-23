@@ -15,8 +15,7 @@ router = APIRouter()
 
 @router.post("/", response_model=ScoreResponse)
 async def score_resume(
-    request: ScoreRequest,
-    current_user: User = Depends(get_current_user),
+    request: ScoreRequest
 ):
     """Calculate ATS compatibility score for a resume against a job description."""
     try:

@@ -5,11 +5,13 @@ import EducationLayout from '@/modules/builder/editor/modules/education/Educatio
 import ExperienceLayout from '@/modules/builder/editor/modules/experience/ExperienceLayout';
 import { ReactNode } from 'react';
 import SkillsLayout from '@/modules/builder/editor/modules/skills/SkillsLayout';
+import TailorLayout from '@/modules/builder/editor/modules/tailor/TailorLayout';
 import VolunteeringLayout from '@/modules/builder/editor/modules/volunteering/VolunteeringLayout';
 
 export const headers: {
   [key: string]: { title: string; component: () => ReactNode };
 } = {
+  tailor: { title: '✨ Tailor Resume', component: TailorLayout },
   'basic-details': { title: 'Basic details', component: BasicLayout },
   'skills-and-expertise': {
     title: 'Skills and expertise',
