@@ -134,13 +134,13 @@ export default function VividTemplate() {
             {data.basics.url && <><span>|</span><span>{data.basics.url}</span></>}
           </div>
         </div>
-        <SortableRegion regionId="main" items={regions.main}>
+        <SortableRegion regionId="main" items={regions.main || []}>
           {(id) => (<SortableTemplateSection key={id} id={id}>{renderSection(id)}</SortableTemplateSection>)}
         </SortableRegion>
       </div>
       {/* Sidebar */}
       <div style={{ flex: '0 0 37%', padding: '32px 36px 32px 24px', background: withAlpha(p.accent, 0.05), borderLeft: `3px solid ${p.accent}` }}>
-        <SortableRegion regionId="sidebar" items={regions.sidebar}>
+        <SortableRegion regionId="sidebar" items={regions.sidebar || []}>
           {(id) => (<SortableTemplateSection key={id} id={id}>{renderSection(id)}</SortableTemplateSection>)}
         </SortableRegion>
       </div>

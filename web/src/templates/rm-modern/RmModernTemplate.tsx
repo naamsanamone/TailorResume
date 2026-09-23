@@ -116,7 +116,7 @@ export default function RmModernTemplate() {
           {data.basics.url && <><span>|</span><span>{data.basics.url}</span></>}
         </div>
       </div>
-      <SortableRegion regionId="main" items={regions.main}>
+      <SortableRegion regionId="main" items={regions.main || []}>
         {(id) => (<SortableTemplateSection key={id} id={id}>{renderSection(id)}</SortableTemplateSection>)}
       </SortableRegion>
     </div>

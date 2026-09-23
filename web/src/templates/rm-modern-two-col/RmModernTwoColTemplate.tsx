@@ -115,12 +115,12 @@ export default function RmModernTwoColTemplate() {
       {/* Two columns */}
       <div style={{ display: 'flex', padding: '0 36px 28px' }}>
         <div style={{ flex: '0 0 63%', paddingRight: '18px' }}>
-          <SortableRegion regionId="main" items={regions.main}>
+          <SortableRegion regionId="main" items={regions.main || []}>
             {(id) => (<SortableTemplateSection key={id} id={id}>{renderSection(id)}</SortableTemplateSection>)}
           </SortableRegion>
         </div>
         <div style={{ flex: '0 0 37%', paddingLeft: '18px', borderLeft: `2px solid ${p.accent}` }}>
-          <SortableRegion regionId="sidebar" items={regions.sidebar}>
+          <SortableRegion regionId="sidebar" items={regions.sidebar || []}>
             {(id) => (<SortableTemplateSection key={id} id={id}>{renderSection(id)}</SortableTemplateSection>)}
           </SortableRegion>
         </div>
