@@ -11,7 +11,7 @@ import VolunteeringLayout from '@/modules/builder/editor/modules/volunteering/Vo
 export const headers: {
   [key: string]: { title: string; component: () => ReactNode };
 } = {
-  tailor: { title: '✨ Tailor Resume', component: TailorLayout },
+  tailor: { title: 'Tailor Resume', component: TailorLayout },
   'basic-details': { title: 'Basic details', component: BasicLayout },
   'skills-and-expertise': {
     title: 'Skills and expertise',

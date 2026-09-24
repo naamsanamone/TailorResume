@@ -368,7 +368,7 @@ const TailorLayout = () => {
       {/* Step 1: Input */}
       {step === 'input' && (
         <>
-          <h2 className="text-2xl font-bold mb-3">✨ Tailor Resume</h2>
+          <h2 className="text-2xl font-bold mb-3">Tailor Resume</h2>
           <p className="text-sm text-gray-600 mb-3">
             Paste a job description to analyze your resume's ATS compatibility, then tailor section by section.
           </p>
@@ -495,7 +495,7 @@ const TailorLayout = () => {
                   disabled={tailoringSection === 'summary'}
                   className="w-full py-1.5 px-3 bg-blue-600 text-white rounded text-xs font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
                 >
-                  {tailoringSection === 'summary' ? '⏳ Tailoring Summary...' : '✨ Tailor Summary'}
+                  {tailoringSection === 'summary' ? '⏳ Tailoring Summary...' : 'Tailor Summary'}
                 </button>
               )}
             </div>
@@ -545,7 +545,7 @@ const TailorLayout = () => {
                       disabled={tailoringSection === `bullets-${i}`}
                       className="w-full mt-1 py-1 px-2 bg-blue-600 text-white rounded text-xs font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
                     >
-                      {tailoringSection === `bullets-${i}` ? '⏳ Optimizing Bullets...' : '✨ Tailor Bullets'}
+                      {tailoringSection === `bullets-${i}` ? '⏳ Optimizing Bullets...' : 'Tailor Bullets'}
                     </button>
                   )}
                 </div>
@@ -589,7 +589,7 @@ const TailorLayout = () => {
                   disabled={tailoringSection === 'skills'}
                   className="w-full py-1.5 px-3 bg-blue-600 text-white rounded text-xs font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
                 >
-                  {tailoringSection === 'skills' ? '⏳ Categorizing & Adding...' : '✨ Tailor & Add Skills'}
+                  {tailoringSection === 'skills' ? '⏳ Categorizing & Adding...' : 'Tailor & Add Skills'}
                 </button>
               )}
             </div>
